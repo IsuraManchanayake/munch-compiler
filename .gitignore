@@ -1,0 +1,10 @@
+.vs
+Debug
+x64
+munch_compiler/Debug
+munch_compiler/x64
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
