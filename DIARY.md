@@ -15,3 +15,11 @@
 - char supports escape char literals
 - strings supports multiline (CR/LF) str literals
 - incompleted virtual machine execution (prolly gonna abandon my implementation)
+
+## 15 Jul 2018 5 AM
+
+- vm code is removed
+- munch.c splitted to ast.c, common.c, lex.c, print.c, test.c and main.c
+- syntax context free grammar is noted down (munch_compiler/grammar.txt)
+- Type, declaration, expression and statement data structures are added
+- Type, expression pretty printer are added

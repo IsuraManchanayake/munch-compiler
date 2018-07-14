@@ -1,0 +1,67 @@
+literal = INT | FLOAT | STR
+
+typespec = NAME | '(' ':' type ')'
+
+operand_expr = literal
+                | NAME
+                | CAST '(' type ')' expr
+                | typespec? ('{' expr_list '}')
+                | '(' expr ')'
+base_expr = operand_expr ('(' expr_list ')' | '[' expr ']' | '.' NAME)*
+unary_expr = ('-' | '~' | '+' | '++' | '--' | '*' | '&') unary_expr | base_expr
+mul_expr = unary_expr (('*' | '/' | '%') unary_expr)*
+add_expr = mul_expr (('+' | '-') mul_expr)*
+shift_expr = add_expr ((LSHIFT | RSHIFT) add_expr)
+cmp_expr = shift_expr (EQ | NEQ | LTEQ | ...) shift_expr
+bit_xor_expr = cmp_expr '^' cmp_expr
+bit_or_expr = bit_xor_expr '&' bit_xor_expr
+and_expr = bit_or_expr (LOG_AND bit_or_expr)*
+or_expr = and_expr (LOG_OR and_expr)* 
+ternary_expr = or_expr ('?' ternary_expr ':' ternary_expr )? ';'
+expr_list = expr (',' expr)*
+
+if_block = 'if' '(' expr ')' stmnt_block ('else' 'if' '(' expr ')' stmnt_block)* ('else' stmnt_block)?
+for_block = 'for' '(' expr_list? ';' expr? ';' expr_list? ')'
+while_block = 'while' '(' expr ')' stmnt_block
+do_while_block = 'do' stmnt_block 'while' '(' expr ')' ';'
+switch_block = 'switch' '{' ('case' literal':' stmnt_block)* ('default' ':' stmnt_block)? '}'
+stmnt = if_block
+            | for_block
+            | while_block
+            | do_while_block
+            | switch_block
+            | expr (INC | DEC)?
+            | (expr ('=' | '+=' | '-=' | ... ))? ternary_expr
+            | 'return' expr ';'
+            | 'continue' ';'
+            | 'break' ';'
+
+stmnt_block = '{' stmnt* '}'
+
+decl_enum = 'enum' '{' enum_list '}'
+enum_list = NAME ('=' INT)? (',' NAME ('=' INT)?)* ,?
+
+aggr_list = decl decl*
+
+name_list = NAME (',' NAME)* ','?
+decl_struct = 'struct' NAME '{' aggr_list '}' name_list';'
+decl_union = 'union' NAME '{' aggr_list '}' name_list';'
+
+ARRAY = '{' (INT (',' INT)*) | STR (',' STR)*) | INT (',' STR)*) | ARRAY (',' ARRAY)*)'}'
+decl_const = NAME COL_ASSIGN (INT | FLOAT | STR | ARRAY)
+
+decl_var = NAME ':' type ('=' expr)? | NAME '=' expr
+
+decl_typedef = NAME '=' type
+
+param_list = (',' NAME ':' type)*
+decl_func = 'function' '(' param_list ')' (':' type) ? stmnt_block
+
+decl =  decl_enum
+    | decl_struct
+    | decl_union
+    | decl_const
+    | decl_var
+    | decl_const
+    | decl_typedef
+    | decl_func
