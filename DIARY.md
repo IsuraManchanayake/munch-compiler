@@ -21,5 +21,12 @@
 - vm code is removed
 - munch.c splitted to ast.c, common.c, lex.c, print.c, test.c and main.c
 - syntax context free grammar is noted down (munch_compiler/grammar.txt)
-- Type, declaration, expression and statement data structures are added
-- Type, expression pretty printer are added
+- type, declaration, expression and statement data structures are added
+- type, expression pretty printer are added
+
+## 16 July 2018 2 AM
+
+- implicit stretchy buffer array fields of ast structures are removed and sizes are introduced
+- typespec and expr constructors are completed
+- pretty printer issues are fixed
+- ast tests passing 

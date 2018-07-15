@@ -51,6 +51,7 @@ typedef enum StmntType {
 } StmntType;
 
 typedef enum TypeSpecType {
+    TYPESPEC_NONE,
     TYPESPEC_NAME,
     TYPESPEC_FUNC,
     TYPESPEC_ARRAY,
@@ -63,7 +64,8 @@ typedef enum TypeSpecType {
 
 typedef struct FuncTypeSpec {
     TypeSpec* ret_type;
-    TypeSpec** params; // sbuf
+    size_t num_params;
+    TypeSpec** params;
 } FuncTypeSpec;
 
 typedef struct TypeSpec {
@@ -72,12 +74,48 @@ typedef struct TypeSpec {
         const char* name;
         // ptr, array
         struct {
-            TypeSpec* typespec;
-            Expr* index;
+            TypeSpec* base;
+            Expr* size;
         };
         FuncTypeSpec func;
     };
 } TypeSpec;
+
+TypeSpec* typespec_alloc(TypeSpecType type) {
+    TypeSpec* typespec = xcalloc(1, sizeof(TypeSpec));
+    typespec->type = type;
+    return typespec;
+}
+
+FuncTypeSpec* functypespec_alloc() {
+    return xcalloc(1, sizeof(FuncTypeSpec));
+}
+
+TypeSpec* typespec_name(const char* name) {
+    TypeSpec* typespec = typespec_alloc(TYPESPEC_NAME);
+    typespec->name = name;
+    return typespec;
+}
+
+TypeSpec* typespec_func(TypeSpec* ret_type, size_t num_params, TypeSpec** params) {
+    TypeSpec* typespec = typespec_alloc(TYPESPEC_FUNC);
+    FuncTypeSpec functypespec = {ret_type, num_params, params};
+    typespec->func = functypespec;
+    return typespec;
+}
+
+TypeSpec* typespec_array(TypeSpec* type, Expr* size) {
+    TypeSpec* typespec = typespec_alloc(TYPESPEC_ARRAY);
+    typespec->base = type;
+    typespec->size = size;
+    return typespec;
+}
+
+TypeSpec* typespec_ptr(TypeSpec* base) {
+    TypeSpec* typespec = typespec_alloc(TYPESPEC_PTR);
+    typespec->base = base;
+    return typespec;
+}
 
 // ========================================================
 
@@ -89,7 +127,8 @@ typedef struct EnumItem {
 } EnumItem;
 
 typedef struct AggregateItem {
-    const char** names; // sbuf
+    size_t num_names;
+    const char** names;
     TypeSpec* type;
 } AggregateItem;
 
@@ -99,7 +138,8 @@ typedef struct FuncParam {
 } FuncParam;
 
 typedef struct FuncDecl {
-    FuncParam* params; // sbuf
+    size_t num_params;
+    FuncParam* params;
     TypeSpec* return_type;
 } FuncDecl;
 
@@ -107,8 +147,14 @@ struct Decl {
     DeclType type;
     const char* name;
     union {
-        EnumItem* enum_items; // sbuf
-        AggregateItem* aggregate_items; // sbuf
+        struct {
+            size_t num_enum_items;
+            EnumItem* enum_items;
+        };
+        struct {
+            size_t num_aggregate_items;
+            AggregateItem* aggregate_items;
+        };
         struct {
             TypeSpec* typespec;
             Expr* expr;
@@ -135,7 +181,11 @@ struct Expr {
             union {
                 const char* ufield; // fields
                 Expr* uindex; // index
-                Expr** uargs; // argument list // sbuf
+                // argument list
+                struct {
+                    size_t num_uargs;
+                    Expr** uargs;
+                };
             };
         };
         // binary
@@ -152,7 +202,8 @@ struct Expr {
         // compound
         struct {
             TypeSpec* compound_type;
-            Expr** compound_list; // expr list // sbuf
+            size_t num_compound_items;
+            Expr** compound_items; // expr list
         };
         // cast
         struct {
@@ -222,6 +273,36 @@ Expr* expr_ternary(Expr* cond, Expr* left, Expr* right) {
     return expr;
 }
 
+Expr* expr_call(Expr* call_expr, size_t num_uargs, Expr** uargs) {
+    Expr* expr = expr_alloc(EXPR_CALL);
+    expr->uexpr = call_expr;
+    expr->num_uargs = num_uargs;
+    expr->uargs = uargs;
+    return expr;
+}
+
+Expr* expr_index(Expr* call_expr, Expr* index) {
+    Expr* expr = expr_alloc(EXPR_INDEX);
+    expr->uexpr = call_expr;
+    expr->uindex = index;
+    return expr;
+}
+
+Expr* expr_field(Expr* call_expr, const char* field) {
+    Expr* expr = expr_alloc(EXPR_FIELD);
+    expr->uexpr = call_expr;
+    expr->ufield = field;
+    return expr;
+}
+
+Expr* expr_compound(TypeSpec* type, size_t num_compound_items, Expr** compound_items) {
+    Expr* expr = expr_alloc(EXPR_COMPOUND);
+    expr->compound_type = type;
+    expr->num_compound_items = num_compound_items;
+    expr->compound_items = compound_items;
+    return expr;
+}
+
 // ========================================================
 
 // Statements =============================================
@@ -254,13 +335,15 @@ struct Stmnt {
         // if else
         struct {
             Expr* if_cond;
-            ElseIfItem* else_ifs; // sbuf;
+            size_t num_else_ifs;
+            ElseIfItem* else_ifs;
             ElseItem else_item;
         };
         // switch
         struct {
             Expr* switch_cond;
-            CaseBlock* case_blocks; // sbuf 
+            size_t num_case_blocks;
+            CaseBlock* case_blocks;
             DefaultBlock default_block;
         };
         // while
@@ -282,7 +365,8 @@ struct Stmnt {
         };
         // stmnt block
         struct {
-            Stmnt** stmnts; // sbuf
+            size_t num_stmnts;
+            Stmnt** stmnts;
         };
         // expr, return
         struct {
@@ -297,32 +381,32 @@ struct Stmnt {
 
 void print_expr(Expr*);
 
-void print_type_spec(TypeSpec* typespec) {
+void print_typespec(TypeSpec* typespec) {
     switch (typespec->type) {
     case TYPESPEC_NAME:
         printf("(%s)", typespec->name);
         break;
     case TYPESPEC_FUNC:
         printf("((");
-        print_type_spec(typespec->func.ret_type);
+        print_typespec(typespec->func.ret_type);
         printf(")");
         printf("(");
-        for (int i = 0; i < buf_len(typespec->func.params); i++) {
-            print_type_spec(typespec->func.params[i]);
+        for (size_t i = 0; i < typespec->func.num_params; i++) {
+            print_typespec(typespec->func.params[i]);
             printf(",");
         }
         printf("))");
         break;
     case TYPESPEC_ARRAY:
         printf("((");
-        print_type_spec(typespec->typespec);
+        print_typespec(typespec->base);
         printf(")[");
-        print_expr(typespec->index);
+        print_expr(typespec->size);
         printf("])");
         break;
     case TYPESPEC_PTR:
         printf("((");
-        print_type_spec(typespec->typespec);
+        print_typespec(typespec->base);
         printf(")*)");
         break;
         break;
@@ -350,15 +434,15 @@ void print_expr(Expr* expr) {
         printf(")");
         break;
     case EXPR_UNARY:
-        printf("(");
+        printf("%c(", expr->op);
         print_expr(expr->uexpr);
-        printf(")%c", expr->op);
+        printf(")");
         break;
     case EXPR_CALL:
         printf("(");
         print_expr(expr->uexpr);
         printf(")(");
-        for (size_t i = 0; i < buf_len(expr->uargs); i++) {
+        for (size_t i = 0; i < expr->num_uargs; i++) {
             print_expr(expr->uargs[i]);
             printf(",");
         }
@@ -378,15 +462,15 @@ void print_expr(Expr* expr) {
         break;
     case EXPR_COMPOUND:
         printf("{");
-        for (size_t i = 0; i < buf_len(expr->compound_list); i++) {
-            print_expr(expr->compound_list[i]);
+        for (size_t i = 0; i < expr->num_compound_items; i++) {
+            print_expr(expr->compound_items[i]);
             printf(",");
         }
         printf("}");
         break;
     case EXPR_CAST:
         printf("(cast ");
-        print_type_spec(expr->cast_type);
+        print_typespec(expr->cast_type);
         printf(" ");
         print_expr(expr->cast_expr);
         printf(")");
@@ -402,28 +486,42 @@ void print_expr(Expr* expr) {
         printf("(");
         print_expr(expr->uexpr);
         printf(").%s", expr->ufield);
+        break;
     default:
         assert(0);
     }
 }
 
-ast_test() {
-    Expr* expr1 = expr_int(32);
-    Expr* expr2 = expr_int(51);
-    Expr* expr3 = expr_binary('+', expr1, expr2);
-    Expr* expr4 = expr_binary('+', expr3, expr2);
-    print_expr(expr1);
+print_expr_line(Expr* expr) {
+    print_expr(expr);
     printf("\n");
-    print_expr(expr2);
-    printf("\n");
-    print_expr(expr3);
-    printf("\n");
-    print_expr(expr4);
-    printf("\n");
-    free(expr1);
-    free(expr2);
-    free(expr3);
-    free(expr4);
 }
+
+print_typespec_line(TypeSpec* typespec) {
+    print_typespec(typespec);
+    printf("\n");
+}
+
+#define CREATE_PRINT_EXPR(e, create_expr) Expr* (e) = (create_expr); print_expr_line(e)
+#define CREATE_PRINT_TYPE(t, create_type) TypeSpec* (t) = (create_type); print_typespec_line(t)
+ast_test() {
+    CREATE_PRINT_TYPE(t1, typespec_name("list"));
+    CREATE_PRINT_TYPE(t2, typespec_array(t1, expr_binary('+', expr_int(1), expr_int(2))));
+    CREATE_PRINT_TYPE(t3, typespec_ptr(t2));
+    CREATE_PRINT_TYPE(t4, typespec_func(t3, 2, (TypeSpec*[]) { typespec_name("int"), t2 }));
+
+    CREATE_PRINT_EXPR(e1, expr_binary('+', expr_int(41), expr_int(2)));
+    CREATE_PRINT_EXPR(e2, expr_binary('-', expr_int(1), expr_int(221)));
+    CREATE_PRINT_EXPR(e3, expr_binary('^', e1, e2));
+    CREATE_PRINT_EXPR(e4, expr_unary('!', e3));
+    CREATE_PRINT_EXPR(e5, expr_ternary(e4, expr_call(expr_name("foo"), 2, (Expr*[]){expr_int(2), expr_str("bar")}), expr_int(2)));
+    CREATE_PRINT_EXPR(e6, expr_field(expr_cast(typespec_name("vector"),
+        expr_compound(typespec_name("int"), 2, (Expr*[]) {expr_str("a"), expr_str("b")})), "size"));
+    CREATE_PRINT_EXPR(e7, expr_index(expr_compound(t2, 1, (Expr*[]) {expr_int(2)}), expr_call(expr_name("foo"), 0, NULL)));
+
+    printf("ast test passed");
+}
+#undef CREATE_PRINT_EXPR
+#undef CREATE_PRINT_TYPE
 
 // ========================================================

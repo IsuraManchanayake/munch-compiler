@@ -11,8 +11,8 @@
 
 #include "common.c"
 #include "lex.c"
-#include "test.c"
 #include "ast.c"
+#include "test.c"
 #include "print.c"
 
 int main(int argc, char** argv) {
