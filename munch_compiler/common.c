@@ -79,6 +79,10 @@ void* _buf_grow(const void* buf, size_t new_len, size_t elem_size) {
     return new_hdr->buf;
 }
 
+#define _STR(x) #x
+#define STR(x) _STR(x)
+#define TODO(x) message(":warning:TODO: " #x)
+
 typedef struct InternStr {
     size_t len;
     const char* str;

@@ -30,3 +30,10 @@
 - typespec and expr constructors are completed
 - pretty printer issues are fixed
 - ast tests passing 
+
+## 17 July 2018 4 AM
+
+- parallel data structures for all types, declarations, statements and expressions are added
+- completed constructors for all sub types of asts
+- pretty printer for declarations without indentation is added
+- TODO pragma warning message added
