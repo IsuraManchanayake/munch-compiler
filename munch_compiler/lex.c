@@ -534,7 +534,7 @@ int32_t parse_src(const char* src) {
 }
 
 #define TEST_PARSE(expr) (assert(parse_src(#expr) == (expr)))
-parse_test() {
+_parse_test() {
     TEST_PARSE(10 + 1);
     TEST_PARSE(2);
     TEST_PARSE(-23423423);
@@ -547,5 +547,5 @@ parse_test() {
 
 void lex_test() {
     _lex_test();
-    parse_test();
+    _parse_test();
 }

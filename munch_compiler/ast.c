@@ -5,6 +5,11 @@ typedef struct Decl Decl;
 typedef struct TypeSpec TypeSpec;
 typedef struct FuncParam FuncParam;
 
+typedef struct BlockStmnt {
+    size_t num_stmnts;
+    Stmnt** stmnts;
+} BlockStmnt;
+
 // Enums   ================================================
 
 typedef enum DeclType {
@@ -171,6 +176,7 @@ typedef struct FuncDecl {
     size_t num_params;
     FuncParam* params;
     TypeSpec* ret_type;
+    BlockStmnt block;
 } FuncDecl;
 
 // --------------------------------------------------------
@@ -228,9 +234,9 @@ Decl* decl_typedef(const char* name, TypeSpec* type) {
 	return decl;
 }
 
-Decl* decl_func(const char* name, size_t num_params, FuncParam* params, TypeSpec* ret_type) {
+Decl* decl_func(const char* name, size_t num_params, FuncParam* params, TypeSpec* ret_type, BlockStmnt block) {
 	Decl* decl = decl_alloc(DECL_FUNC, name);
-	decl->func_decl = (FuncDecl) { .num_params = num_params, .params = params, .ret_type = ret_type };
+	decl->func_decl = (FuncDecl) { .num_params = num_params, .params = params, .ret_type = ret_type, .block = block };
 	return decl;
 }
 
@@ -412,39 +418,41 @@ Expr* expr_compound(TypeSpec* type, size_t num_exprs, Expr** exprs) {
 
 typedef struct ElseIfItem {
 	Expr* cond;
-	Stmnt* stmnt;
+    BlockStmnt block;
 } ElseIfItem;
 
 typedef struct IfElseIfStmnt {
 	Expr* if_cond;
-	Stmnt* then_stmnt;
+	BlockStmnt then_block;
 	size_t num_else_ifs;
 	ElseIfItem* else_ifs;
-	Stmnt* else_stmnt;
+    BlockStmnt else_block;
 } IfElseIfStmnt;
 
 typedef struct CaseBlock {
 	Expr* case_expr;
-	Stmnt* stmnt;
+    BlockStmnt block;
 } CaseBlock;
 
 typedef struct SwitchStmnt {
 	Expr* switch_expr;
 	size_t num_case_blocks;
 	CaseBlock* case_blocks;
-	Stmnt* default_stmnt;
+    BlockStmnt default_block;
 } SwitchStmnt;
 
 typedef struct WhileStmnt {
 	Expr* cond;
-	Stmnt* stmnt;
+    BlockStmnt block;
 } WhileStmnt;
 
 typedef struct ForStmnt {
+    size_t num_init;
 	Expr** init;
 	Expr* cond;
+    size_t num_update;
 	Expr** update;
-	Stmnt* stmnt;
+	BlockStmnt block;
 } ForStmnt;
 
 typedef struct AssignStmnt {
@@ -453,14 +461,13 @@ typedef struct AssignStmnt {
 	TokenType op;
 } AssignStmnt;
 
-typedef struct BlockStmnt {
-	size_t num_stmnts;
-	Stmnt** stmnts;
-} BlockStmnt;
-
 typedef struct ReturnStmnt {
 	Expr* expr;
 } ReturnStmnt;
+
+typedef struct ExprStmnt {
+    Expr* expr;
+} ExprStmnt;
 
 // --------------------------------------------------------
 
@@ -474,6 +481,7 @@ struct Stmnt {
 		AssignStmnt assign_stmnt;
 		BlockStmnt block_stmnt;
 		ReturnStmnt return_stmnt;
+        ExprStmnt expr_stmnt;
     };
 };
 
@@ -485,49 +493,49 @@ Stmnt* stmnt_alloc(StmntType type) {
 	return stmnt;
 }
 
-Stmnt* return_stmnt(Expr* expr) {
+Stmnt* stmnt_return(Expr* expr) {
 	Stmnt* stmnt = stmnt_alloc(STMNT_RETURN);
 	stmnt->return_stmnt = (ReturnStmnt) { expr };
 	return stmnt;
 }
 
-Stmnt* ifelseif_stmnt(Expr* if_cond, Stmnt* then_stmnt, size_t num_else_ifs, ElseIfItem* else_ifs, Stmnt* else_stmnt) {
+Stmnt* stmnt_ifelseif(Expr* if_cond, BlockStmnt then_block, size_t num_else_ifs, ElseIfItem* else_ifs, BlockStmnt else_block) {
 	Stmnt* stmnt = stmnt_alloc(STMNT_IF_ELSE);
 	stmnt->ifelseif_stmnt = (IfElseIfStmnt) {
 		.if_cond=if_cond, 
-		.then_stmnt=then_stmnt, 
+		.then_block= then_block,
 		.num_else_ifs=num_else_ifs,
 		.else_ifs=else_ifs, 
-		.else_stmnt=else_stmnt
+		.else_block=else_block
 	};
 	return stmnt;
 }
 
-Stmnt* switch_stmnt(Expr* switch_expr, size_t num_case_blocks, CaseBlock* case_blocks, Stmnt* default_stmnt) {
+Stmnt* stmnt_switch(Expr* switch_expr, size_t num_case_blocks, CaseBlock* case_blocks, BlockStmnt default_block) {
 	Stmnt* stmnt = stmnt_alloc(STMNT_SWITCH);
 	stmnt->switch_stmnt = (SwitchStmnt) { 
 		.switch_expr = switch_expr, 
 		.num_case_blocks = num_case_blocks,
 		.case_blocks = case_blocks,
-		.default_stmnt = default_stmnt 
+		.default_block = default_block
 	};
 	return stmnt;
 }
 
-Stmnt* while_stmnt(StmntType type, Expr* cond, Stmnt* body) {
+Stmnt* stmnt_while(StmntType type, Expr* cond, BlockStmnt block) {
 	assert(type == STMNT_WHILE || type == STMNT_DO_WHILE);
 	Stmnt* stmnt = stmnt_alloc(type);
-	stmnt->while_stmnt = (WhileStmnt) { .cond = cond, .stmnt = body };
+	stmnt->while_stmnt = (WhileStmnt) { .cond = cond, .block = block };
 	return stmnt;
 }
 
-Stmnt* for_stmnt(Expr** init, Expr* cond, Expr** update, Stmnt* body) {
+Stmnt* stmnt_for(size_t num_init, Expr** init, Expr* cond, size_t num_update, Expr** update, BlockStmnt block) {
 	Stmnt* stmnt = stmnt_alloc(STMNT_FOR);
-	stmnt->for_stmnt = (ForStmnt) { .init = init, .cond = cond, .update = update, .stmnt = body };
+	stmnt->for_stmnt = (ForStmnt) { .num_init=num_init, .init = init, .cond = cond, .num_update=num_update, .update = update, .block = block };
 	return stmnt;
 }
 
-Stmnt* assign_stmnt(Expr* left, Expr* right, TokenType op) {
+Stmnt* stmnt_assign(Expr* left, Expr* right, TokenType op) {
 	assert(op == TOKEN_ADD_ASSIGN || op == TOKEN_BIT_AND_ASSIGN || op == TOKEN_BIT_OR_ASSIGN 
 		|| op == TOKEN_BIT_XOR_ASSIGN || op == TOKEN_COLON_ASSIGN || op == TOKEN_DIV_ASSIGN  
 		|| op == TOKEN_MUL_ASSIGN || op == TOKEN_MOD_ASSIGN || op == TOKEN_LSHIFT_ASSIGN 
@@ -537,226 +545,28 @@ Stmnt* assign_stmnt(Expr* left, Expr* right, TokenType op) {
 	return stmnt;
 }
 
-Stmnt* break_stmnt() {
+Stmnt* stmnt_break() {
 	return stmnt_alloc(STMNT_BREAK);
 }
 
-Stmnt* continue_stmnt() {
+Stmnt* stmnt_continue() {
 	return stmnt_alloc(STMNT_CONTINUE);
 }
 
-Stmnt* block_stmnt(size_t num_stmnts, Stmnt** stmnts) {
+Stmnt* stmnt_block(size_t num_stmnts, Stmnt** stmnts) {
 	Stmnt* stmnt = stmnt_alloc(STMNT_BLOCK);
-	stmnt->block_stmnt.num_stmnts = num_stmnts;
-	stmnt->block_stmnt.stmnts = stmnts;
+    stmnt->block_stmnt = (BlockStmnt) { .num_stmnts = num_stmnts, .stmnts = stmnts };
 	return stmnt;
+}
+
+Stmnt* stmnt_expr(Expr* expr) {
+    Stmnt* stmnt = stmnt_alloc(STMNT_EXPR);
+    stmnt->expr_stmnt = (ExprStmnt) { .expr = expr };
+    return stmnt;
 }
 
 // ========================================================
 
 // tests ==================================================
-
-void print_expr(Expr*);
-
-void print_typespec(TypeSpec* typespec) {
-    switch (typespec->type) {
-    case TYPESPEC_NAME:
-        printf("%s", typespec->name.name);
-        break;
-    case TYPESPEC_FUNC:
-        printf("((");
-        print_typespec(typespec->func.ret_type);
-        printf(")(");
-        for (size_t i = 0; i < typespec->func.num_params; i++) {
-            print_typespec(typespec->func.params[i]);
-            printf(",");
-        }
-        printf("))");
-        break;
-    case TYPESPEC_ARRAY:
-        printf("(");
-        print_typespec(typespec->array.base);
-        printf("[");
-        print_expr(typespec->array.size);
-        printf("])");
-        break;
-    case TYPESPEC_PTR:
-        printf("(ref ");
-        print_typespec(typespec->ptr.base);
-        printf(")");
-        break;
-        break;
-    default:
-        assert(0);
-    }
-}
-
-void print_expr(Expr* expr) {
-    switch (expr->type) {
-    case EXPR_TERNARY:
-        printf("(");
-        print_expr(expr->ternary_expr.cond);
-        printf(")?(");
-        print_expr(expr->ternary_expr.left);
-        printf("):(");
-        print_expr(expr->ternary_expr.right);
-        printf(")");
-        break;
-    case EXPR_BINARY:
-        printf("(");
-        printf("%c ", expr->binary_expr.op);
-		print_expr(expr->binary_expr.left);
-		printf(" ");
-        print_expr(expr->binary_expr.right);
-        printf(")");
-        break;
-    case EXPR_UNARY:
-        printf("(%c ", expr->unary_expr.op);
-        print_expr(expr->unary_expr.expr);
-        printf(")");
-        break;
-    case EXPR_CALL:
-        printf("(call ");
-        print_expr(expr->call_expr.expr);
-        printf(" (");
-        for (size_t i = 0; i < expr->call_expr.num_args; i++) {
-            print_expr(expr->call_expr.args[i]);
-            printf(",");
-        }
-        printf("))");
-        break;
-    case EXPR_INT:
-        printf("%llu", expr->int_expr.int_val);
-        break;
-    case EXPR_FLOAT:
-        printf("%f", expr->float_expr.float_val);
-        break;
-    case EXPR_STR:
-        printf("\"%s\"", expr->str_expr.str_val);
-        break;
-    case EXPR_NAME:
-        printf("%s", expr->name_expr.name);
-        break;
-    case EXPR_COMPOUND:
-		printf("((");
-		print_typespec(expr->compound_expr.type);
-		printf(")");
-        printf("{");
-        for (size_t i = 0; i < expr->compound_expr.num_exprs; i++) {
-            print_expr(expr->compound_expr.exprs[i]);
-            printf(",");
-        }
-        printf("})");
-        break;
-    case EXPR_CAST:
-        printf("(cast ");
-        print_typespec(expr->cast_expr.cast_type);
-        printf(" ");
-        print_expr(expr->cast_expr.cast_expr);
-        printf(")");
-        break;
-    case EXPR_INDEX:
-        printf("(index ");
-        print_expr(expr->index_expr.expr);
-        printf(" [");
-        print_expr(expr->index_expr.index);
-        printf("]");
-        break;
-    case EXPR_FIELD:
-        printf("(field ");
-        print_expr(expr->field_expr.expr);
-        printf(" %s)", expr->field_expr.field);
-        break;
-    default:
-        assert(0);
-    }
-}
-
-void print_decl(Decl* decl) {
-	switch (decl->type) {
-	case DECL_ENUM:
-		printf("(enum %s {", decl->name);
-		for (size_t i = 0; i < decl->enum_decl.num_enum_items; i++) {
-			printf("%s=%d, ", decl->enum_decl.enum_items[i].name, decl->enum_decl.enum_items[i].int_val);
-		}
-		printf("})");
-		break;
-	case DECL_STRUCT:
-	case DECL_UNION:
-		printf("(%s %s {", decl->type == DECL_UNION ? "union" : "struct", decl->name);
-		for (size_t i = 0; i < decl->aggregate_decl.num_aggregate_items; i++) {
-			AggregateItem aggr_item = decl->aggregate_decl.aggregate_items[i];
-			print_typespec(aggr_item.type);
-			printf(" %s = ", aggr_item.name);
-			print_expr(aggr_item.expr);
-			printf(", ");
-		}
-		printf("})");
-		break;
-	case DECL_CONST:
-		printf("(const %s :=", decl->name);
-		print_expr(decl->const_decl.expr);
-		printf(")");
-		break;
-	case DECL_VAR:
-		printf("(");
-		print_typespec(decl->var_decl.type);
-		printf(" %s =", decl->name);
-		print_expr(decl->var_decl.expr);
-		break;
-	case DECL_TYPEDEF:
-		printf("(typedef %s ", decl->name);
-		print_typespec(decl->typedef_decl.type);
-		printf(")");
-		break;
-	case DECL_FUNC:
-		printf("(funcdec %s (", decl->name);
-		print_typespec(decl->func_decl.ret_type);
-		printf(") (");
-		for (size_t i = 0; i < decl->func_decl.num_params; i++) {
-			FuncParam param = decl->func_decl.params[i];
-			print_typespec(param.type);
-			printf(" %s, ", param.name);
-		}
-		printf("))");
-		break;
-	default:
-		assert(0);
-	}
-}
-
-#pragma TODO(define print statements)
-
-print_expr_line(Expr* expr) {
-    print_expr(expr);
-    printf("\n");
-}
-
-print_typespec_line(TypeSpec* typespec) {
-    print_typespec(typespec);
-    printf("\n");
-}
-
-#define CREATE_PRINT_EXPR(e, create_expr) Expr* (e) = (create_expr); print_expr_line(e)
-#define CREATE_PRINT_TYPE(t, create_type) TypeSpec* (t) = (create_type); print_typespec_line(t)
-ast_test() {
-    CREATE_PRINT_TYPE(t1, typespec_name("list"));
-    CREATE_PRINT_TYPE(t2, typespec_array(t1, expr_binary('+', expr_int(1), expr_int(2))));
-    CREATE_PRINT_TYPE(t3, typespec_ptr(t2));
-    CREATE_PRINT_TYPE(t4, typespec_func(t3, 2, (TypeSpec*[]) { typespec_name("int"), t2 }));
-
-    CREATE_PRINT_EXPR(e1, expr_binary('+', expr_int(41), expr_int(2)));
-    CREATE_PRINT_EXPR(e2, expr_binary('-', expr_int(1), expr_int(221)));
-    CREATE_PRINT_EXPR(e3, expr_binary('^', e1, e2));
-    CREATE_PRINT_EXPR(e4, expr_unary('!', e3));
-    CREATE_PRINT_EXPR(e5, expr_ternary(e4, expr_call(expr_name("foo"), 2, (Expr*[]){expr_int(2), expr_str("bar")}), expr_int(2)));
-    CREATE_PRINT_EXPR(e6, expr_field(expr_cast(typespec_name("vector"),
-        expr_compound(typespec_name("int"), 2, (Expr*[]) {expr_str("a"), expr_str("b")})), "size"));
-    CREATE_PRINT_EXPR(e7, expr_index(expr_compound(t2, 1, (Expr*[]) {expr_int(2)}), expr_call(expr_name("foo"), 0, NULL)));
-
-    printf("ast test passed");
-}
-#undef CREATE_PRINT_EXPR
-#undef CREATE_PRINT_TYPE
 
 // ========================================================
