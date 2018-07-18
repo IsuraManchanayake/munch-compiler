@@ -48,7 +48,7 @@ decl_struct = 'struct' NAME '{' aggr_list '}' name_list';'
 decl_union = 'union' NAME '{' aggr_list '}' name_list';'
 
 ARRAY = '{' (INT (',' INT)*) | STR (',' STR)*) | INT (',' STR)*) | ARRAY (',' ARRAY)*)'}'
-decl_const = NAME COL_ASSIGN (INT | FLOAT | STR | ARRAY)
+decl_const = 'const' NAME COL_ASSIGN (INT | FLOAT | STR | ARRAY)
 
 decl_var = NAME ':' type ('=' expr)? | NAME '=' expr
 

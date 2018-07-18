@@ -83,6 +83,43 @@ void* _buf_grow(const void* buf, size_t new_len, size_t elem_size) {
 #define STR(x) _STR(x)
 #define TODO(x) message(":warning:TODO: " #x)
 
+#define ARENA_ALIGNMENT 8 // must be power of 2
+#define ARENA_BLOCK_SIZE (1 << 10)
+
+#define ALIGN_DOWN(n, a) ((n) & ~((a) - 1))
+#define ALIGN_UP(n, a) ALIGN_DOWN((n) + (a) - 1, a)
+#define ALIGN_DOWN_PTR(ptr, a) (void*) ALIGN_DOWN((uintptr_t)ptr, a)
+#define ALIGN_UP_PTR(ptr, a) (void*) ALIGN_UP((uintptr_t)ptr, a)
+
+typedef struct Arena {
+    char* ptr;
+    char* end;
+    char** blocks;
+} Arena;
+
+void arena_grow(Arena* arena, size_t size) {
+    size_t alloc_size = ALIGN_UP(max(size, ARENA_BLOCK_SIZE), ARENA_ALIGNMENT);
+    arena->ptr = xmalloc(alloc_size);
+    arena->end = arena->ptr + alloc_size;
+    buf_push(arena->blocks, arena->ptr);
+}
+
+void* arena_alloc(Arena* arena, size_t size) {
+    if (size > (size_t)(arena->end - arena->ptr)) {
+        arena_grow(arena, size);
+    }
+    void* new_ptr = arena->ptr;
+    arena->ptr = ALIGN_UP_PTR(new_ptr + size, ARENA_ALIGNMENT);
+    assert(arena->end - arena->ptr >= 0);
+    assert(new_ptr == ALIGN_DOWN_PTR(new_ptr, ARENA_ALIGNMENT));
+    return new_ptr;
+}
+
+#undef ALIGN_DOWN
+#undef ALIGN_UP
+#undef ALIGN_PTR_UP
+#undef ALIGN_PTR_DOWN
+
 typedef struct InternStr {
     size_t len;
     const char* str;

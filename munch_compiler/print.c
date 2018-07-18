@@ -390,7 +390,7 @@ print_ast_test() {
     CREATE_PRINT_TYPE(t2, typespec_array(t1, expr_binary('+', expr_int(1), expr_int(2))));
     CREATE_PRINT_TYPE(t3, typespec_ptr(t2));
     CREATE_PRINT_TYPE(t4, typespec_func(t3, 2, (TypeSpec*[]) { typespec_name("int"), t2 }));
-
+    
     CREATE_PRINT_EXPR(e1, expr_binary('+', expr_int(41), expr_int(2)));
     CREATE_PRINT_EXPR(e2, expr_binary(TOKEN_LSHIFT, expr_int(1), expr_int(221)));
     CREATE_PRINT_EXPR(e3, expr_binary('^', e1, e2));
@@ -463,7 +463,7 @@ print_ast_test() {
                     )
                 }
             }));
-
+            
     printf("ast print test passed\n");
 }
 

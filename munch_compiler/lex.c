@@ -3,14 +3,57 @@ const char* kwrd_else;
 const char* kwrd_for;
 const char* kwrd_while;
 const char* kwrd_do;
+const char* kwrd_switch;
+const char* kwrd_case;
+const char* kwrd_default;
+const char* kwrd_break;
+const char* kwrd_continue;
+const char* kwrd_return;
+const char* kwrd_struct;
+const char* kwrd_union;
+const char* kwrd_enum;
+const char* kwrd_const;
+const char* kwrd_sizeof;
+const char* kwrd_var;
+const char* kwrd_func;
+const char* kwrd_typedef;
+const char* kwrd_true;
+const char* kwrd_false;
+
+const char** keywords;
+
+#define INIT_KEYWORD(k) kwrd_##k = str_intern(#k); buf_push(keywords, kwrd_##k)
 
 void init_keywords() {
-    kwrd_if = str_intern("if");
-    kwrd_else = str_intern("else");
-    kwrd_for = str_intern("for");
-    kwrd_while = str_intern("while");
-    kwrd_do = str_intern("do");
+    static bool keyword_inited = false;
+    if (!keyword_inited) {
+        return;
+    }
+    INIT_KEYWORD(if);
+    INIT_KEYWORD(else);
+    INIT_KEYWORD(for);
+    INIT_KEYWORD(while);
+    INIT_KEYWORD(do);
+    INIT_KEYWORD(switch);
+    INIT_KEYWORD(case);
+    INIT_KEYWORD(default);
+    INIT_KEYWORD(break);
+    INIT_KEYWORD(continue);
+    INIT_KEYWORD(return);
+    INIT_KEYWORD(struct);
+    INIT_KEYWORD(union);
+    INIT_KEYWORD(enum);
+    INIT_KEYWORD(const);
+    INIT_KEYWORD(sizeof);
+    INIT_KEYWORD(var);
+    INIT_KEYWORD(func);
+    INIT_KEYWORD(typedef);
+    INIT_KEYWORD(true);
+    INIT_KEYWORD(false);
+    keyword_inited = true;
 }
+
+#undef INIT_KEYWORD
 
 typedef enum TokenType {
     TOKEN_LAST_CHAR = 127,

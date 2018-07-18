@@ -5,6 +5,8 @@ typedef struct Decl Decl;
 typedef struct TypeSpec TypeSpec;
 typedef struct FuncParam FuncParam;
 
+Arena ast_arena;
+
 typedef struct BlockStmnt {
     size_t num_stmnts;
     Stmnt** stmnts;
@@ -100,7 +102,8 @@ typedef struct TypeSpec {
 // --------------------------------------------------------
 
 TypeSpec* typespec_alloc(TypeSpecType type) {
-    TypeSpec* typespec = xcalloc(1, sizeof(TypeSpec));
+    TypeSpec* typespec = arena_alloc(&ast_arena, sizeof(TypeSpec));
+    memset(typespec, 0, sizeof(TypeSpec));
     typespec->type = type;
     return typespec;
 }
@@ -197,7 +200,8 @@ struct Decl {
 // --------------------------------------------------------
 
 Decl* decl_alloc(DeclType type, const char* name) {
-	Decl* decl = xcalloc(1, sizeof(Decl));
+    Decl* decl = arena_alloc(&ast_arena, sizeof(Decl));
+    memset(decl, 0, sizeof(Decl));
 	decl->type = type;
 	decl->name = name;
 	return decl;
@@ -327,7 +331,8 @@ struct Expr {
 // --------------------------------------------------------
 
 Expr* expr_alloc(ExprType type) {
-    Expr* expr = xcalloc(1, sizeof(Expr));
+    Expr* expr = arena_alloc(&ast_arena, sizeof(Expr));
+    memset(expr, 0, sizeof(Expr));
     expr->type = type;
     return expr;
 }
@@ -488,7 +493,8 @@ struct Stmnt {
 // --------------------------------------------------------
 
 Stmnt* stmnt_alloc(StmntType type) {
-	Stmnt* stmnt = xcalloc(1, sizeof(Stmnt));
+    Stmnt* stmnt = arena_alloc(&ast_arena, sizeof(Stmnt));
+    memset(stmnt, 0, sizeof(Stmnt));
 	stmnt->type = type;
 	return stmnt;
 }

@@ -1,5 +1,11 @@
 # Diary
 
+## 19 July 2019 3 AM
+
+- (cool) arena allocation is added
+- asts allocated with arena allocations pass tests
+- set of keywords added
+
 ## 18 July 2018 4 AM
 
 - all ast pretty printers are completed now with new line indentations
