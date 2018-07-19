@@ -1,6 +1,14 @@
 # Diary
 
-## 19 July 2019 3 AM
+## 20 July 2018 2 AM
+
+- arena allocation is used by intern strs
+- keywords are identified as seperate tokens
+- parser development is started
+- stretchy buffer malloc, realloc replaced with xmalloc, xrealloc
+- ast duplication is added
+
+## 19 July 2018 3 AM
 
 - (cool) arena allocation is added
 - asts allocated with arena allocations pass tests

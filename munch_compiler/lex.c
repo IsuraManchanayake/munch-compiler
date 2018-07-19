@@ -21,12 +21,14 @@ const char* kwrd_true;
 const char* kwrd_false;
 
 const char** keywords;
+const char* first_kwrd;
+const char* last_kwrd;
 
 #define INIT_KEYWORD(k) kwrd_##k = str_intern(#k); buf_push(keywords, kwrd_##k)
 
 void init_keywords() {
     static bool keyword_inited = false;
-    if (!keyword_inited) {
+    if (keyword_inited) {
         return;
     }
     INIT_KEYWORD(if);
@@ -50,13 +52,18 @@ void init_keywords() {
     INIT_KEYWORD(typedef);
     INIT_KEYWORD(true);
     INIT_KEYWORD(false);
+    first_kwrd = kwrd_if;
+    last_kwrd = kwrd_false;
     keyword_inited = true;
 }
 
 #undef INIT_KEYWORD
 
 typedef enum TokenType {
+    TOKEN_EOF = 0,
+    // do not define in between. allocated for one char operators
     TOKEN_LAST_CHAR = 127,
+    TOKEN_KEYWORD,
     TOKEN_INT,
     TOKEN_FLOAT,
     TOKEN_STR,
@@ -260,39 +267,6 @@ void scan_str() {
     token.strval = str_buf;
 }
 
-void next_token() {
-    token.start = stream;
-    switch (*stream) {
-    case ' ': case '\n': case '\t': case '\r': case '\v': case '\b': case '\f': case '\a': {
-        while (isspace(*stream)) stream++;
-        next_token();
-        break;
-    }
-    case '.': {
-        scan_float();
-        break;
-    }
-    case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': {
-        const char* start = stream;
-        while (isdigit(*stream)) stream++;
-        if (*stream == '.' || *stream == 'e') {
-            stream = start;
-            scan_float();
-        }
-        else {
-            stream = start;
-            scan_int();
-        }
-        break;
-    }
-    case '\'': {
-        scan_char();
-        break;
-    }
-    case '"': {
-        scan_str();
-        break;
-    }
 #define CASE_1(op_start, op_1, tok_1) \
     case op_start: \
         token.type = op_start; \
@@ -331,6 +305,40 @@ void next_token() {
             stream++; \
         } \
         break;
+
+void next_token() {
+    token.start = stream;
+    switch (*stream) {
+    case ' ': case '\n': case '\t': case '\r': case '\v': case '\b': case '\f': case '\a': {
+        while (isspace(*stream)) stream++;
+        next_token();
+        break;
+    }
+    case '.': {
+        scan_float();
+        break;
+    }
+    case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': {
+        const char* start = stream;
+        while (isdigit(*stream)) stream++;
+        if (*stream == '.' || *stream == 'e') {
+            stream = start;
+            scan_float();
+        }
+        else {
+            stream = start;
+            scan_int();
+        }
+        break;
+    }
+    case '\'': {
+        scan_char();
+        break;
+    }
+    case '"': {
+        scan_str();
+        break;
+    }
     CASE_1('=', '=', TOKEN_EQ);
     CASE_1('!', '=', TOKEN_NEQ);
     CASE_1(':', '=', TOKEN_COLON_ASSIGN);
@@ -344,9 +352,6 @@ void next_token() {
     CASE_2('|', '|', TOKEN_LOG_OR, '=', TOKEN_BIT_OR_ASSIGN);
     CASE_LONG('<', '<', TOKEN_LSHIFT, '=', TOKEN_LSHIFT_ASSIGN, '=', TOKEN_LTEQ);
     CASE_LONG('>', '>', TOKEN_RSHIFT, '=', TOKEN_RSHIFT_ASSIGN, '=', TOKEN_GTEQ);
-#undef CASE_1
-#undef CASE_2
-#undef CASE_LONG
     case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h': case 'i': case 'j': 
     case 'k': case 'l': case 'm': case 'n': case 'o': case 'p': case 'q': case 'r': case 's': case 't':
     case 'u': case 'v': case 'w': case 'x': case 'y': case 'z':
@@ -356,8 +361,8 @@ void next_token() {
     case '_': {
         const char* start = stream++;
         while (isalnum(*stream) || *stream == '_') stream++;
-        token.type = TOKEN_NAME;
         token.name = str_intern_range(start, stream);
+        token.type = (token.name >= first_kwrd && token.name <= last_kwrd) ? TOKEN_KEYWORD : TOKEN_NAME;
         break;
     }
     default:
@@ -365,6 +370,10 @@ void next_token() {
     }
     token.end = stream;
 }
+
+#undef CASE_1
+#undef CASE_2
+#undef CASE_LONG
 
 void init_stream(const char* src) {
     stream = src;
@@ -379,16 +388,28 @@ inline bool is_token_name(const char* name) {
     return token.type == TOKEN_NAME && token.name == name;
 }
 
+inline bool is_keyword(const char* name) {
+    return token.type == TOKEN_KEYWORD && token.name == name;
+}
+
 inline bool match_token(TokenType type) {
     if (is_token(type)) {
         next_token();
         return true;
     }
-    else {
-        return false;
-    }
+    return false;
 }
 
+// NOTE: name should be intern str
+inline bool match_keyword(const char* name) {
+    if (is_keyword(name)) {
+        next_token();
+        return true;
+    }
+    return false;
+}
+
+#pragma TODO("Write a correct version of get_token_type_name (for all TokenTypes)")
 const char* get_token_type_name(TokenType type) {
     static char buf[256];
     switch (type) {
@@ -429,13 +450,8 @@ inline bool expect_token(TokenType type) {
     }
 }
 
-/*
-e3 = INT | '(' e ')'
-e2 = [-] e3
-e1 = e2 ([/*] e2)*
-e0 = e1 ([+-] e1)*
-e = e0
-*/
+// (temp) calculator --------------------------------
+
 int32_t parse_e();
 
 int32_t parse_e3() {
@@ -503,8 +519,11 @@ int32_t parse_e() {
     return parse_e0();
 }
 
+// --------------------------------------------------
+
 #define assert_token_type(type) (assert(match_token((type))))
 #define assert_token_name(x) (assert(str_intern((x)) == token.name && match_token(TOKEN_NAME)))
+#define assert_token_keyword(x) (assert(match_keyword(str_intern(x))))
 #define assert_token_float(x) (assert(token.floatval == (x) && match_token(TOKEN_FLOAT)))
 #define assert_token_int(x) (assert(token.intval == (x) && match_token(TOKEN_INT)))
 #define assert_token_str(x) (assert(strcmp(token.strval, (x)) == 0 && match_token(TOKEN_STR)))
@@ -513,6 +532,8 @@ int32_t parse_e() {
 #define init_stream(src) (stream = (src), next_token())
 
 _lex_test() {
+    init_keywords();
+
     init_stream("0 032  + 0x111f");
     assert_token_int(0);
     assert_token_int(032);
@@ -555,28 +576,38 @@ _lex_test() {
     assert_token_str("hel\nlo\n world!");
     assert_token_eof();
 
+    init_stream("case '2':");
+    assert_token_keyword(kwrd_case);
+    assert_token_char('2');
+    assert_token_type(':');
+    assert_token_eof();
+
+    init_stream("const pi = 3.14");
+    assert_token_keyword(kwrd_const);
+    assert_token_name("pi");
+    assert_token_type('=');
+    assert_token_float(3.14);
+
     printf("lex test passed\n");
 }
 
 #undef assert_token_type
-#undef assert_token_int
 #undef assert_token_name
+#undef assert_token_keyword
+#undef assert_token_float
+#undef assert_token_int
+#undef assert_token_str
+#undef assert_token_char
 #undef assert_token_eof
-
+#undef init_stream
 
 int32_t parse_src(const char* src) {
     init_stream(src);
-#ifdef VERBOSE_PARSE
-    printf("Evaluating \"%s\"\n", src);
-#endif
-    int32_t res = parse_e();
-#ifdef VERBOSE_PARSE
-    printf("Result     %d\n\n", res);
-#endif
-    return res;
+    return parse_e();
 }
 
 #define TEST_PARSE(expr) (assert(parse_src(#expr) == (expr)))
+
 _parse_test() {
     TEST_PARSE(10 + 1);
     TEST_PARSE(2);
@@ -586,9 +617,11 @@ _parse_test() {
     TEST_PARSE(-1 * (2 + (3 - 6 / 3)));
     printf("parse test passed\n");
 }
+
 #undef TEST_PARSE
 
 void lex_test() {
+    printf("----- lex.c -----\n");
     _lex_test();
     _parse_test();
 }

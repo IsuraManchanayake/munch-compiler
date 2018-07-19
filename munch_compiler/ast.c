@@ -12,6 +12,15 @@ typedef struct BlockStmnt {
     Stmnt** stmnts;
 } BlockStmnt;
 
+void* ast_dup(const void* ast, size_t size) {
+    if (ast == NULL || size == 0) {
+        return NULL;
+    }
+    void* dup = arena_alloc(&ast_arena, size);
+    memcpy(dup, ast, size);
+    return dup;
+}
+
 // Enums   ================================================
 
 typedef enum DeclType {

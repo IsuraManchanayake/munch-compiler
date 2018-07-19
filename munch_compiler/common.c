@@ -69,10 +69,10 @@ void* _buf_grow(const void* buf, size_t new_len, size_t elem_size) {
     size_t new_size = offsetof(BufHdr, buf) + new_cap * elem_size;
     BufHdr* new_hdr;
     if (buf) {
-        new_hdr = realloc(_buf_hdr(buf), new_size);
+        new_hdr = xrealloc(_buf_hdr(buf), new_size);
     }
     else {
-        new_hdr = malloc(new_size);
+        new_hdr = xmalloc(new_size);
         new_hdr->len = 0;
     }
     new_hdr->cap = new_cap;
@@ -125,14 +125,15 @@ typedef struct InternStr {
     const char* str;
 } InternStr;
 
-static InternStr* interns;
+InternStr* interns;
+Arena str_arena;
 
 const char* str_intern_range(const char* start, const char* end) {
     size_t len = end - start;
     for (size_t i = 0; i < buf_len(interns); i++)
         if (interns[i].len == len && strncmp(interns[i].str, start, len) == 0)
             return interns[i].str;
-    char* str = malloc(len + 1);
+    char* str = arena_alloc(&str_arena, len + 1);
     memcpy(str, start, len);
     str[len] = 0;
     buf_push(interns, ((InternStr){len, str}));
@@ -170,6 +171,7 @@ intern_str_test() {
 }
 
 void common_test() {
+    printf("----- common.c -----\n");
     buf_test();
     intern_str_test();
 }

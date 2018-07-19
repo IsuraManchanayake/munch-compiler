@@ -386,6 +386,8 @@ print_decl_line(Decl* decl) {
 #define CREATE_PRINT_DECL(d, create_decl) Decl* (d) = (create_decl); print_decl_line(d)
 
 print_ast_test() {
+    printf("----- print.c -----\n");
+
     CREATE_PRINT_TYPE(t1, typespec_name("list"));
     CREATE_PRINT_TYPE(t2, typespec_array(t1, expr_binary('+', expr_int(1), expr_int(2))));
     CREATE_PRINT_TYPE(t3, typespec_ptr(t2));

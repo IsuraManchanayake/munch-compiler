@@ -1,6 +1,10 @@
+#define TEST(test_method) test_method; printf("\n") 
+
 void run_tests() {
-    common_test();
-    lex_test();
-    print_ast_test();
-    parse_test();
+    //TEST(common_test());
+    //TEST(lex_test());
+    //TEST(print_ast_test());
+    TEST(parse_test());
 }
+
+#undef TEST
