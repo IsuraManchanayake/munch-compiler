@@ -1,5 +1,11 @@
 # Diary
 
+## 21 July 2018 4 AM
+
+- an enum item can have an expression (a const expr which will eventually evaluated to an int val) instead of int value
+- decl parsing is done
+- typespec, expr, stmnt are on the way
+
 ## 20 July 2018 2 AM
 
 - arena allocation is used by intern strs

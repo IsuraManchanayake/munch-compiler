@@ -147,7 +147,7 @@ TypeSpec* typespec_ptr(TypeSpec* base) {
 
 typedef struct EnumItem {
     const char* name;
-	uint64_t int_val;
+	Expr* expr;
 } EnumItem;
 
 typedef struct EnumDecl {

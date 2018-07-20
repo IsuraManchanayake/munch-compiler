@@ -308,7 +308,8 @@ void print_decl(Decl* decl) {
         printf("enum %s {", decl->name);
         INDENT;
         for (size_t i = 0; i < decl->enum_decl.num_enum_items; i++) {
-            printf("%s = %llu", decl->enum_decl.enum_items[i].name, decl->enum_decl.enum_items[i].int_val);
+            printf("%s = ", decl->enum_decl.enum_items[i].name);
+            print_expr(decl->enum_decl.enum_items[i].expr);
             if (i != decl->enum_decl.num_enum_items - 1) {
                 printf(","); print_new_line();
             }
@@ -402,7 +403,7 @@ print_ast_test() {
                                                expr_compound(typespec_name("int"), 2, (Expr*[]) { expr_str("a"), expr_str("b") })), "size"));
     CREATE_PRINT_EXPR(e7, expr_index(expr_compound(t2, 1, (Expr*[]) { expr_int(2) }), expr_call(expr_name("foo"), 0, NULL)));
 
-    CREATE_PRINT_DECL(d1, decl_enum("Animal", 2, (EnumItem[]) { { "dog", 0 }, { "cat", 1 } }));
+    CREATE_PRINT_DECL(d1, decl_enum("Animal", 2, (EnumItem[]) { { "dog", expr_int(0) }, { "cat", expr_int(1) } }));
     CREATE_PRINT_DECL(d2, decl_aggregate(DECL_STRUCT, "Student", 2, (AggregateItem[]) { { "name", typespec_name("string"), expr_str("NONE") }, { "age", typespec_name("int"), expr_int(0) } }));
     CREATE_PRINT_DECL(d3, decl_const("pi", expr_float(3.14)));
     CREATE_PRINT_DECL(d4, decl_var("a", t2, expr_name("NULL")));
