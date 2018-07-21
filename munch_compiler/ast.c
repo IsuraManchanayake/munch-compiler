@@ -462,10 +462,10 @@ typedef struct WhileStmnt {
 
 typedef struct ForStmnt {
     size_t num_init;
-	Expr** init;
+    Stmnt** init;
 	Expr* cond;
     size_t num_update;
-	Expr** update;
+    Stmnt** update;
 	BlockStmnt block;
 } ForStmnt;
 
@@ -544,7 +544,7 @@ Stmnt* stmnt_while(StmntType type, Expr* cond, BlockStmnt block) {
 	return stmnt;
 }
 
-Stmnt* stmnt_for(size_t num_init, Expr** init, Expr* cond, size_t num_update, Expr** update, BlockStmnt block) {
+Stmnt* stmnt_for(size_t num_init, Stmnt** init, Expr* cond, size_t num_update, Stmnt** update, BlockStmnt block) {
 	Stmnt* stmnt = stmnt_alloc(STMNT_FOR);
 	stmnt->for_stmnt = (ForStmnt) { .num_init=num_init, .init = init, .cond = cond, .num_update=num_update, .update = update, .block = block };
 	return stmnt;

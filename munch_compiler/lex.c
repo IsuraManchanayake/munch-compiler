@@ -450,6 +450,57 @@ inline bool expect_token(TokenType type) {
     }
 }
 
+inline bool expect_keyword(const char* name) {
+    if (is_keyword(name)) {
+        next_token();
+        return true;
+    }
+    else {
+        fatal("expected keyword %s. got %s", name, token.name);
+        return false;
+    }
+}
+
+inline bool is_literal() {
+    return token.type >= TOKEN_INT || token.type <= TOKEN_STR;
+}
+
+inline bool is_cmp_op() {
+    return token.type == '<' || token.type == '>' || (token.type >= TOKEN_EQ && token.type <= TOKEN_GTEQ);
+}
+
+inline bool is_shift_op() {
+    return token.type == '<<' || token.type == '>>';
+}
+
+inline bool is_add_op() {
+    return token.type == '+' || token.type == '-';
+}
+
+inline bool is_mul_op() {
+    return token.type == '*' || token.type == '/' || token.type == '%';
+}
+
+inline bool is_unary_op() {
+    return token.type == '-' || token.type == '+' || token.type == '~'
+        || token.type == '&' || token.type == '*' || token.type == '!'
+        || token.type == TOKEN_INC || token.type == TOKEN_DEC;
+}
+
+inline bool is_assign_op() {
+    return token.type == '=' || (token.type >= TOKEN_COLON_ASSIGN && token.type <= TOKEN_RSHIFT_ASSIGN);
+}
+
+inline bool expect_assign_op() {
+    if (is_assign_op()) {
+        next_token();
+        return true;
+    }
+    else {
+        fatal("expected an assign operator. got %s", get_token_type_name(token.type));
+    }
+}
+
 // (temp) calculator --------------------------------
 
 int32_t parse_e();
