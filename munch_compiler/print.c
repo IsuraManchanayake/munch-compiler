@@ -139,14 +139,14 @@ void print_stmnt(Stmnt* stmnt) {
     case STMNT_FOR:
         printf("for (");
         for (size_t i = 0; i < stmnt->for_stmnt.num_init; i++) {
-            print_expr(stmnt->for_stmnt.init[i]);
+            print_stmnt(stmnt->for_stmnt.init[i]);
             if (i != stmnt->for_stmnt.num_init - 1) printf(", ");
         }
         printf("; ");
         print_expr(stmnt->for_stmnt.cond);
         printf("; ");
         for (size_t i = 0; i < stmnt->for_stmnt.num_update; i++) {
-            print_expr(stmnt->for_stmnt.update[i]);
+            print_stmnt(stmnt->for_stmnt.update[i]);
             if (i != stmnt->for_stmnt.num_update - 1) (", ");
         }
         printf(")");
@@ -308,8 +308,11 @@ void print_decl(Decl* decl) {
         printf("enum %s {", decl->name);
         INDENT;
         for (size_t i = 0; i < decl->enum_decl.num_enum_items; i++) {
-            printf("%s = ", decl->enum_decl.enum_items[i].name);
-            print_expr(decl->enum_decl.enum_items[i].expr);
+            printf("%s", decl->enum_decl.enum_items[i].name);
+            if (decl->enum_decl.enum_items[i].expr) {
+                printf(" = ");
+                print_expr(decl->enum_decl.enum_items[i].expr);
+            }
             if (i != decl->enum_decl.num_enum_items - 1) {
                 printf(","); print_new_line();
             }
@@ -324,8 +327,11 @@ void print_decl(Decl* decl) {
         for (size_t i = 0; i < decl->aggregate_decl.num_aggregate_items; i++) {
             AggregateItem aggr_item = decl->aggregate_decl.aggregate_items[i];
             print_typespec(aggr_item.type);
-            printf(" %s = ", aggr_item.name);
-            print_expr(aggr_item.expr);
+            printf(" %s", aggr_item.name);
+            if (aggr_item.expr) {
+                printf(" = ");
+                print_expr(aggr_item.expr);
+            }
             if (i != decl->aggregate_decl.num_aggregate_items - 1) {
                 printf(","); print_new_line();
             }
@@ -339,8 +345,11 @@ void print_decl(Decl* decl) {
         break;
     case DECL_VAR:
         print_typespec(decl->var_decl.type);
-        printf(" %s = ", decl->name);
-        print_expr(decl->var_decl.expr);
+        printf(" %s", decl->name);
+        if (decl->var_decl.expr) {
+            printf(" = ");
+            print_expr(decl->var_decl.expr);
+        }
         break;
     case DECL_TYPEDEF:
         printf("typedef %s = ", decl->name);

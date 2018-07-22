@@ -1,5 +1,13 @@
 # Diary
 
+## 23 July 2018 2 AM
+
+- first version of the parser is done (yay!)
+- current tests are passed (more tests have to be written)
+- several bugs in previous parse functions are fixed
+- a bug in is_literal() is fixed
+- optional exprs are checked for nullity in print functions 
+
 ## 22 July 2018 1 AM
 
 - expr and stmnt parsers are completed

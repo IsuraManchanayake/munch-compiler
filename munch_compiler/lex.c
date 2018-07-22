@@ -462,7 +462,7 @@ inline bool expect_keyword(const char* name) {
 }
 
 inline bool is_literal() {
-    return token.type >= TOKEN_INT || token.type <= TOKEN_STR;
+    return token.type >= TOKEN_INT && token.type <= TOKEN_STR;
 }
 
 inline bool is_cmp_op() {

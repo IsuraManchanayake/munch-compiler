@@ -1,6 +1,11 @@
 #pragma TODO("PARSE ALL!!!")
 
 Stmnt* parse_stmnt();
+Expr* parse_expr();
+TypeSpec* parse_typespec();
+Expr* parse_expr_cmp();
+
+BlockStmnt parse_blockstmnt();
 
 const char* parse_name() {
     const char* name = token.name;
@@ -8,9 +13,56 @@ const char* parse_name() {
     return name;
 }
 
+TypeSpec* parse_type_func() {
+    expect_token('(');
+    TypeSpec** args = NULL;
+    if (!is_token(')')) {
+        buf_push(args, parse_typespec());
+        while (match_token(',')) {
+            buf_push(args, parse_typespec());
+        }
+    }
+    expect_token(')');
+    TypeSpec* ret_type = NULL;
+    if (match_token(':')) {
+        ret_type = parse_typespec();
+    }
+    return typespec_func(ret_type, buf_len(args), args);
+}
+
+TypeSpec* parse_type_base() {
+    if (is_token(TOKEN_NAME)) {
+        const char* name = token.name;
+        next_token();
+        return typespec_name(name);
+    }
+    else if (match_keyword(kwrd_func)) {
+        return parse_type_func();
+    }
+    else if (match_token('(')) {
+        TypeSpec* type = parse_typespec();
+        expect_token(')');
+        return type;
+    }
+    syntax_error("Expected a base type. Found <ASCII %d>", token.type);
+}
+
 TypeSpec* parse_typespec() {
-    printf("parse typespec\n");
-    return NULL;
+    TypeSpec* type = parse_type_base();
+    while (true) {
+        if (match_token('[')) {
+            Expr* index = parse_expr();
+            expect_token(']');
+            type = typespec_array(type, index);
+        }
+        else if (match_token('*')) {
+            type = typespec_ptr(type);
+        }
+        else {
+            break;
+        }
+    }
+    return type;
 }
 
 Expr* parse_expr_literal() {
@@ -319,7 +371,13 @@ Stmnt* parse_stmnt_return() {
 }
 
 BlockStmnt parse_blockstmnt() {
-    return (BlockStmnt) { 0, NULL };
+    expect_token('{');
+    Stmnt** stmnts = NULL;
+    while (!is_token('}')) {
+        buf_push(stmnts, parse_stmnt());
+    }
+    expect_token('}');
+    return (BlockStmnt) { buf_len(stmnts), stmnts };
 }
 
 Stmnt* parse_stmnt_block() {
@@ -391,8 +449,10 @@ AggregateItem parse_aggregate_item() {
     const char* name = parse_name();
     if (match_token(':')) {
         TypeSpec* type = parse_typespec();
-        return match_token('=') ? (AggregateItem){ name, type, NULL } 
-            : (AggregateItem) { name, type, parse_expr() };
+        if (match_token('=')) {
+            return (AggregateItem) { name, type, parse_expr() };
+        }
+        return (AggregateItem) { name, type, NULL };
     }
     expect_token('=');
     return (AggregateItem) { name, NULL, parse_expr() };
@@ -429,8 +489,10 @@ Decl* parse_decl_var() {
     const char* name = parse_name();
     if (match_token(':')) {
         TypeSpec* type = parse_typespec();
-        return match_token('=') ? decl_var(name, type, NULL)
-            : decl_var(name, type, parse_expr());
+        if (match_token('=')) {
+            return decl_var(name, type, parse_expr());
+        }
+        return decl_var(name, type, NULL);
     }
     else if (match_token('=')) {
         return decl_var(name, NULL, parse_expr());
@@ -464,7 +526,7 @@ Decl* parse_decl_func() {
     }
     expect_token(')');
     TypeSpec* ret_type = NULL;
-    if (is_token(':')) {
+    if (match_token(':')) {
         ret_type = parse_typespec();
     }
     return decl_func(name, buf_len(func_params), func_params, ret_type, parse_blockstmnt());
@@ -495,14 +557,21 @@ Decl* parse_decl() {
     syntax_error("Expected a declaration keyword. Found %s", get_token_type_name(token.type));
 }
 
+#define PARSE_SRC_DECL(src) init_stream(src); print_decl(parse_decl()); printf("\n")
+
 parse_test() {
     printf("----- parse.c -----\n");
     
     init_keywords();
 
-    init_stream("const pi = 3.14");
-    Decl* d1 = parse_decl();
-    print_decl(d1);
+    PARSE_SRC_DECL("const pi = 3.14");
+    PARSE_SRC_DECL("var v : int = 1");
+    PARSE_SRC_DECL("enum Animal {dog, cat=2 + 1}");
+    PARSE_SRC_DECL("struct Student {name :String, age: int, classes: Class[10], id:int = -1, class: Class**}");
+    PARSE_SRC_DECL("typedef foo = func (int, int**):String[10]");
+    PARSE_SRC_DECL("func fibonacci(int n): int {if(n <= 1) { return n } return fibonacci(n-1) + fibonacci(n-2)}");
 
     printf("parse test passed\n");
 }
+
+#undef PARSE_SRC_DECL
