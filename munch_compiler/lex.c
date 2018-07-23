@@ -113,6 +113,7 @@ typedef struct Token {
 } Token;
 
 Token token;
+const char* src_start;
 const char* stream;
 
 const char char_to_digit[256] = {
@@ -182,7 +183,8 @@ void scan_float() {
     }
     const char* end = stream;
     if (end - start == 1) {
-        syntax_error("Float literal length should be more than 1");
+        token.type = '.';
+        return;
     }
     double val = strtod(start, NULL);
     if (val == HUGE_VAL || val == -HUGE_VAL) {
@@ -376,6 +378,7 @@ void next_token() {
 #undef CASE_LONG
 
 void init_stream(const char* src) {
+    src_start = src;
     stream = src;
     next_token();
 }
@@ -439,12 +442,33 @@ const char* get_token_type_name(TokenType type) {
     return buf;
 }
 
+#define ERROR_DISPLAY_WIDTH 20
+
+void show_error_token() {
+    size_t curr = token.start - src_start;
+    size_t left = max(curr - ERROR_DISPLAY_WIDTH / 2, 0);
+    size_t len = (left + ERROR_DISPLAY_WIDTH) % (strlen(src_start)) - left;
+    printf("%.*s\n", len, src_start + left);
+    size_t err_pos = curr - left;
+    if (err_pos) {
+        char* ss = malloc(sizeof(char) * (err_pos + 1));
+        memset(ss, ' ', sizeof(char) * err_pos);
+        ss[err_pos] = 0;
+        printf("%s^\n", ss);
+        free(ss);
+    }
+    else {
+        printf("^\n");
+    }
+}
+
 inline bool expect_token(TokenType type) {
     if (is_token(type)) {
         next_token();
         return true;
     }
     else {
+        show_error_token();
         fatal("expected token %s. got %s", get_token_type_name(type), get_token_type_name(token.type));
         return false;
     }
@@ -456,6 +480,7 @@ inline bool expect_keyword(const char* name) {
         return true;
     }
     else {
+        show_error_token();
         fatal("expected keyword %s. got %s", name, token.name);
         return false;
     }
@@ -470,7 +495,7 @@ inline bool is_cmp_op() {
 }
 
 inline bool is_shift_op() {
-    return token.type == '<<' || token.type == '>>';
+    return token.type == TOKEN_LSHIFT || token.type == TOKEN_RSHIFT;
 }
 
 inline bool is_add_op() {
@@ -497,6 +522,7 @@ inline bool expect_assign_op() {
         return true;
     }
     else {
+        show_error_token();
         fatal("expected an assign operator. got %s", get_token_type_name(token.type));
     }
 }
@@ -518,6 +544,7 @@ int32_t parse_e3() {
         return val;
     }
     else {
+        show_error_token();
         fatal("expected int or expr. got %s", get_token_type_name(token.type));
     }
 }
@@ -580,7 +607,7 @@ int32_t parse_e() {
 #define assert_token_str(x) (assert(strcmp(token.strval, (x)) == 0 && match_token(TOKEN_STR)))
 #define assert_token_char(x) (assert(token.intval == (x) && token.mod == TOK_MOD_CHAR && match_token(TOKEN_INT)))
 #define assert_token_eof() (assert(is_token(0)))
-#define init_stream(src) (stream = (src), next_token())
+#define init_stream(src) (src_start = (src), stream = (src), next_token())
 
 _lex_test() {
     init_keywords();

@@ -1,5 +1,22 @@
 # Diary
 
+## 24 July 2018 4 AM
+
+- custom exit codes are added for memory allocation errors
+- error token displaying (cool!) method is added
+- error in is_shift_op is fixed
+- '.' is added as a token. previously it was a float literal error
+- error in stmnt_ifelseif was fixed
+- new parsing features are added
+    - optional trailing ',' token for enum or compound expression lists
+    - post increment/decrement feature
+    - simple statements (assignment/post increment or decrement/expression)
+    - list of simple statements feature for 'for' loop init and update statements
+    - semicolons at statement endings)
+- unions and structs fields are seperated by ';' instead of commas
+- new passing test cases for parsing is added
+- several minor bugs in print.c are fixed
+
 ## 23 July 2018 2 AM
 
 - first version of the parser is done (yay!)

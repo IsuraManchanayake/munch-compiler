@@ -109,7 +109,7 @@ void print_stmnt(Stmnt* stmnt) {
     case STMNT_SWITCH:
         printf("switch (");
         print_expr(stmnt->switch_stmnt.switch_expr);
-        printf(")");
+        printf(") {");
         INDENT;
         for (size_t i = 0; i < stmnt->switch_stmnt.num_case_blocks; i++) {
             printf("case (");
@@ -122,6 +122,7 @@ void print_stmnt(Stmnt* stmnt) {
             print_stmnt_block(stmnt->switch_stmnt.default_block);
         }
         UNINDENT;
+        printf("}");
         break;
     case STMNT_WHILE:
         printf("while (");
@@ -134,7 +135,7 @@ void print_stmnt(Stmnt* stmnt) {
         print_stmnt_block(stmnt->while_stmnt.block);
         printf(" while(");
         print_expr(stmnt->while_stmnt.cond);
-        printf(");");
+        printf(")");
         break;
     case STMNT_FOR:
         printf("for (");
@@ -147,29 +148,29 @@ void print_stmnt(Stmnt* stmnt) {
         printf("; ");
         for (size_t i = 0; i < stmnt->for_stmnt.num_update; i++) {
             print_stmnt(stmnt->for_stmnt.update[i]);
-            if (i != stmnt->for_stmnt.num_update - 1) (", ");
+            if (i != stmnt->for_stmnt.num_update - 1) printf(", ");
         }
         printf(")");
         print_stmnt_block(stmnt->for_stmnt.block);
         break;
     case STMNT_ASSIGN:
         print_expr(stmnt->assign_stmnt.left);
+        printf(" ");
         print_op(stmnt->assign_stmnt.op);
+        printf(" ");
         print_expr(stmnt->assign_stmnt.right);
-        printf(";");
         break;
     case STMNT_BREAK:
-        printf("break;");
+        printf("break");
         break;
     case STMNT_CONTINUE:
-        printf("continue;");
+        printf("continue");
         break;
     case STMNT_BLOCK:
         print_stmnt_block(stmnt->block_stmnt);
         break;
     case STMNT_EXPR:
         print_expr(stmnt->expr_stmnt.expr);
-        printf(";");
         break;
     default:
         assert(0);
@@ -240,10 +241,13 @@ void print_expr(Expr* expr) {
         print_expr(expr->binary_expr.right);
         printf(")");
         break;
-    case EXPR_UNARY:
+    case EXPR_PRE_UNARY:
         print_op(expr->unary_expr.op);
         print_expr(expr->unary_expr.expr);
-        printf(")");
+        break;
+    case EXPR_POST_UNARY:
+        print_expr(expr->unary_expr.expr);
+        print_op(expr->unary_expr.op);
         break;
     case EXPR_CALL:
         printf("(call ");
@@ -268,9 +272,12 @@ void print_expr(Expr* expr) {
         printf("%s", expr->name_expr.name);
         break;
     case EXPR_COMPOUND:
-        printf("((");
-        print_typespec(expr->compound_expr.type);
-        printf(")");
+        printf("(");
+        if (expr->compound_expr.type) {
+            printf("(");
+            print_typespec(expr->compound_expr.type);
+            printf(")");
+        }
         printf("{");
         for (size_t i = 0; i < expr->compound_expr.num_exprs; i++) {
             print_expr(expr->compound_expr.exprs[i]);
@@ -314,7 +321,7 @@ void print_decl(Decl* decl) {
                 print_expr(decl->enum_decl.enum_items[i].expr);
             }
             if (i != decl->enum_decl.num_enum_items - 1) {
-                printf(","); print_new_line();
+                print_new_line();
             }
         }
         UNINDENT;
@@ -333,7 +340,7 @@ void print_decl(Decl* decl) {
                 print_expr(aggr_item.expr);
             }
             if (i != decl->aggregate_decl.num_aggregate_items - 1) {
-                printf(","); print_new_line();
+                print_new_line();
             }
         }
         UNINDENT;
@@ -356,9 +363,13 @@ void print_decl(Decl* decl) {
         print_typespec(decl->typedef_decl.type);
         break;
     case DECL_FUNC:
-        printf("func %s (", decl->name);
-        print_typespec(decl->func_decl.ret_type);
-        printf(") (");
+        printf("func %s", decl->name);
+        if (decl->func_decl.ret_type) {
+            printf("(");
+            print_typespec(decl->func_decl.ret_type);
+            printf(")");
+        }
+        printf("(");
         for (size_t i = 0; i < decl->func_decl.num_params; i++) {
             FuncParam param = decl->func_decl.params[i];
             print_typespec(param.type);
@@ -406,7 +417,7 @@ print_ast_test() {
     CREATE_PRINT_EXPR(e1, expr_binary('+', expr_int(41), expr_int(2)));
     CREATE_PRINT_EXPR(e2, expr_binary(TOKEN_LSHIFT, expr_int(1), expr_int(221)));
     CREATE_PRINT_EXPR(e3, expr_binary('^', e1, e2));
-    CREATE_PRINT_EXPR(e4, expr_unary('!', e3));
+    CREATE_PRINT_EXPR(e4, expr_unary(EXPR_PRE_UNARY, '!', e3));
     CREATE_PRINT_EXPR(e5, expr_ternary(e4, expr_call(expr_name("foo"), 2, (Expr*[]) { expr_int(2), expr_str("bar") }), expr_int(2)));
     CREATE_PRINT_EXPR(e6, expr_field(expr_cast(typespec_name("vector"),
                                                expr_compound(typespec_name("int"), 2, (Expr*[]) { expr_str("a"), expr_str("b") })), "size"));

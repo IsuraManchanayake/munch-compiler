@@ -4,6 +4,7 @@ Stmnt* parse_stmnt();
 Expr* parse_expr();
 TypeSpec* parse_typespec();
 Expr* parse_expr_cmp();
+Stmnt* parse_stmnt_simple();
 
 BlockStmnt parse_blockstmnt();
 
@@ -90,6 +91,7 @@ Expr* parse_expr_compound(TypeSpec* type) {
     if (!is_token('}')) {
         buf_push(exprs, parse_expr());
         while (match_token(',')) {
+            if (is_token('}')) break;
             buf_push(exprs, parse_expr());
         }
     }
@@ -147,6 +149,12 @@ Expr* parse_expr_base() {
         else if (match_token('.')) {
             operand_expr = expr_field(operand_expr, parse_name());
         }
+        else if (is_token(TOKEN_INC) || is_token(TOKEN_DEC)) {
+            TokenType op = token.type;
+            next_token();
+            operand_expr = expr_unary(EXPR_POST_UNARY, op, operand_expr);
+            break;
+        }
         else {
             break;
         }
@@ -158,7 +166,7 @@ Expr* parse_expr_unary() {
     if (is_unary_op()) {
         TokenType unary_op = token.type;
         next_token();
-        return expr_unary(unary_op, parse_expr_base());
+        return expr_unary(EXPR_PRE_UNARY, unary_op, parse_expr_base());
     }
     return parse_expr_base();
 }
@@ -264,18 +272,24 @@ Stmnt* parse_stmnt_ifelseif() {
     expect_token(')');
     BlockStmnt then_block = parse_blockstmnt();
     ElseIfItem* else_ifs = NULL;
-    while (is_keyword(kwrd_else) && is_keyword(kwrd_if)) {
-        next_token();
-        next_token();
-        expect_token('(');
-        Expr* elseif_cond = parse_expr();
-        expect_token(')');
-        ElseIfItem elseif_item = (ElseIfItem) { elseif_cond, parse_blockstmnt() };
-        buf_push(else_ifs, elseif_item);
-    }
     BlockStmnt else_block = (BlockStmnt) { 0, NULL };
-    if (match_keyword(kwrd_else)) {
-        else_block = parse_blockstmnt();
+    while (true) {
+        if (match_keyword(kwrd_else)) {
+            if (match_keyword(kwrd_if)) {
+                expect_token('(');
+                Expr* elseif_cond = parse_expr();
+                expect_token(')');
+                ElseIfItem elseif_item = (ElseIfItem) { elseif_cond, parse_blockstmnt() };
+                buf_push(else_ifs, elseif_item);
+            }
+            else {
+                else_block = parse_blockstmnt();
+                break;
+            }
+        }
+        else {
+            break;
+        }
     }
     return stmnt_ifelseif(cond, then_block, buf_len(else_ifs), else_ifs, else_block);
 }
@@ -326,7 +340,7 @@ Stmnt* parse_stmnt_do() {
 }
 
 Stmnt* parse_for_init_update() {
-    Stmnt* stmnt = parse_stmnt();
+    Stmnt* stmnt = parse_stmnt_simple();
     if (stmnt->type != STMNT_ASSIGN && stmnt->type != STMNT_EXPR) {
         syntax_error("Expected an assign statement or expression. Found <STMNT %d>", stmnt->type);
     }
@@ -367,7 +381,9 @@ Stmnt* parse_stmnt_assign() {
 }
 
 Stmnt* parse_stmnt_return() {
-    return stmnt_return(parse_expr());
+    Expr* expr = parse_expr();
+    expect_token(';');
+    return stmnt_return(expr);
 }
 
 BlockStmnt parse_blockstmnt() {
@@ -394,6 +410,23 @@ Stmnt* parse_stmnt_expr() {
     return stmnt_expr(parse_expr());
 }
 
+Stmnt* parse_stmnt_simple() {
+    Expr* left = parse_expr();
+    if (is_assign_op()) {
+        TokenType op = token.type;
+        next_token();
+        return stmnt_assign(left, parse_expr(), op);
+    }
+    else if (token.type == TOKEN_INC || token.type == TOKEN_DEC) {
+        TokenType op = token.type;
+        next_token();
+        return stmnt_assign(left, NULL, op);
+    }
+    else {
+        return stmnt_expr(left);
+    }
+}
+
 Stmnt* parse_stmnt() {
     if (match_keyword(kwrd_if)) {
         return parse_stmnt_ifelseif();
@@ -417,12 +450,18 @@ Stmnt* parse_stmnt() {
         return parse_stmnt_block();
     }
     else if (match_keyword(kwrd_break)) {
+        expect_token(';');
         return stmnt_break();
     }
     else if (match_keyword(kwrd_continue)) {
+        expect_token(';');
         return stmnt_continue();
     }
-    return NULL;
+    else {
+        Stmnt* stmnt = parse_stmnt_simple();
+        expect_token(';');
+        return stmnt;
+    }
 }
 
 EnumItem parse_enum_item() {
@@ -439,6 +478,7 @@ Decl* parse_decl_enum() {
     EnumItem* enum_items = NULL;
     buf_push(enum_items, parse_enum_item());
     while (match_token(',')) {
+        if (is_token('}')) break;
         buf_push(enum_items, parse_enum_item());
     }
     expect_token('}');
@@ -464,8 +504,10 @@ Decl* parse_aggregate(DeclType type) {
     expect_token('{');
     AggregateItem* aggregate_items = NULL;
     buf_push(aggregate_items, parse_aggregate_item());
-    while (match_token(',')) {
+    expect_token(';');
+    while (!is_token('}')) {
         buf_push(aggregate_items, parse_aggregate_item());
+        expect_token(';');
     }
     expect_token('}');
     return decl_aggregate(type, name, buf_len(aggregate_items), aggregate_items);
@@ -557,19 +599,42 @@ Decl* parse_decl() {
     syntax_error("Expected a declaration keyword. Found %s", get_token_type_name(token.type));
 }
 
-#define PARSE_SRC_DECL(src) init_stream(src); print_decl(parse_decl()); printf("\n")
+#define PARSE_SRC_DECL(src) init_stream(src); print_decl(parse_decl()); printf("\n-----------------------------\n")
+#define PARSE_SRC_STMNT(src) init_stream(src); print_stmnt(parse_stmnt()); printf("\n-----------------------------\n")
 
 parse_test() {
     printf("----- parse.c -----\n");
     
     init_keywords();
 
-    PARSE_SRC_DECL("const pi = 3.14");
+    PARSE_SRC_STMNT("a > b ? ++a: b;");
+    PARSE_SRC_STMNT("x + y++ * z;");
+    PARSE_SRC_STMNT("x + --y++ * z;");
+    PARSE_SRC_STMNT("size += {1, 2, 3}.length;");
+    PARSE_SRC_STMNT("size += int {1, 2, 3}.length;");
+    PARSE_SRC_STMNT("if(a == 1 || b <= a++ / 2) { b++; } else if (c > 2 ? b : a) { d[i][j].mm.s(2, 2); } else if (i <= 3 << 2) {d++;} else {a++; if(i < 2) {d /= gcd(a, b);}}");
+    PARSE_SRC_STMNT("for(i = 0; i < 10; i++, ++k) {printf(\"hello %d\", i); }");
+
     PARSE_SRC_DECL("var v : int = 1");
-    PARSE_SRC_DECL("enum Animal {dog, cat=2 + 1}");
-    PARSE_SRC_DECL("struct Student {name :String, age: int, classes: Class[10], id:int = -1, class: Class**}");
+    PARSE_SRC_DECL("enum Animal {dog, cat=2 + 1,}");
+    PARSE_SRC_DECL("struct Student {name :String; age: int; classes: Class[10]; id:int = -1; class: Class**;}");
     PARSE_SRC_DECL("typedef foo = func (int, int**):String[10]");
-    PARSE_SRC_DECL("func fibonacci(int n): int {if(n <= 1) { return n } return fibonacci(n-1) + fibonacci(n-2)}");
+    PARSE_SRC_DECL("func fibonacci(int n): int {if(n <= 1) { return n; } return fibonacci(n-1) + fibonacci(n-2);}");
+    PARSE_SRC_DECL("func kick_animal(Animal a) {"
+                        "switch(a) { "
+                            "case Animal.dog:{"
+                                "printf(\"woof\");"
+                                "break;"
+                            "}"
+                            "case Animal.cat: {"
+                                "printf(\"meow\");"
+                                "break;"
+                            "}"
+                            "default: {"
+                                "printf(\"hello there\");"
+                            "}"
+                        "}"
+                    "}");
 
     printf("parse test passed\n");
 }

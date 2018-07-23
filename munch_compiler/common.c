@@ -2,7 +2,8 @@ void* xmalloc(size_t size) {
     void* p = malloc(size);
     if (!p) {
         perror("xmalloc fail!");
-        exit(1);
+        getchar();
+        exit(2001);
     }
     return p;
 }
@@ -11,7 +12,8 @@ void* xcalloc(size_t nitems, size_t size) {
     void* p = calloc(nitems, size);
     if (!p) {
         perror("xcalloc fail!");
-        exit(1);
+        getchar();
+        exit(2002);
     }
     return p;
 }
@@ -19,8 +21,9 @@ void* xcalloc(size_t nitems, size_t size) {
 void* xrealloc(void* block, size_t size) {
     void* p = realloc(block, size);
     if (!p) {
-        perror("xmrealloc fail");
-        exit(1);
+        perror("xrealloc fail");
+        getchar();
+        exit(2003);
     }
     return p;
 }

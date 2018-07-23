@@ -38,7 +38,8 @@ typedef enum ExprType {
     EXPR_NONE,
     EXPR_TERNARY,
     EXPR_BINARY,
-    EXPR_UNARY,
+    EXPR_PRE_UNARY,
+    EXPR_POST_UNARY,
     EXPR_CALL,
     EXPR_INT,
     EXPR_FLOAT,
@@ -324,7 +325,8 @@ struct Expr {
     union {
 		TernaryExpr ternary_expr;
 		BinaryExpr binary_expr;
-		UnaryExpr unary_expr;
+		UnaryExpr unary_expr; // pre inc and dec are included
+        UnaryExpr post_unary_expr; // only post inc and dec
 		CallExpr call_expr;
 		IntExpr int_expr;
 		FloatExpr float_expr;
@@ -376,13 +378,16 @@ Expr* expr_cast(TypeSpec* cast_type, Expr* cast_expr) {
     return expr;
 }
 
-Expr* expr_unary(TokenType op, Expr* uexpr) {
+Expr* expr_unary(ExprType unary_type, TokenType op, Expr* uexpr) {
+    assert(unary_type == EXPR_PRE_UNARY || unary_type == EXPR_POST_UNARY);
 	assert(op == TOKEN_INC || op == TOKEN_DEC || op == '+'
 		|| op == '-' || op == '*' || op == '!' || op == '~');
-    Expr* expr = expr_alloc(EXPR_UNARY);
+    Expr* expr = expr_alloc(unary_type);
 	expr->unary_expr = (UnaryExpr) { .expr=uexpr, .op=op };
     return expr;
 }
+
+
 
 Expr* expr_binary(TokenType op, Expr* left, Expr* right) {
 	assert(op == TOKEN_LOG_AND || op == TOKEN_LOG_OR || op == TOKEN_LSHIFT 
@@ -551,10 +556,11 @@ Stmnt* stmnt_for(size_t num_init, Stmnt** init, Expr* cond, size_t num_update, S
 }
 
 Stmnt* stmnt_assign(Expr* left, Expr* right, TokenType op) {
-	assert(op == TOKEN_ADD_ASSIGN || op == TOKEN_BIT_AND_ASSIGN || op == TOKEN_BIT_OR_ASSIGN 
-		|| op == TOKEN_BIT_XOR_ASSIGN || op == TOKEN_COLON_ASSIGN || op == TOKEN_DIV_ASSIGN  
-		|| op == TOKEN_MUL_ASSIGN || op == TOKEN_MOD_ASSIGN || op == TOKEN_LSHIFT_ASSIGN 
-		|| op == TOKEN_RSHIFT_ASSIGN || op == TOKEN_ADD_ASSIGN || op == TOKEN_SUB_ASSIGN);
+    assert(op == TOKEN_ADD_ASSIGN || op == TOKEN_BIT_AND_ASSIGN || op == TOKEN_BIT_OR_ASSIGN
+           || op == TOKEN_BIT_XOR_ASSIGN || op == TOKEN_COLON_ASSIGN || op == TOKEN_DIV_ASSIGN
+           || op == TOKEN_MUL_ASSIGN || op == TOKEN_MOD_ASSIGN || op == TOKEN_LSHIFT_ASSIGN
+           || op == TOKEN_RSHIFT_ASSIGN || op == TOKEN_ADD_ASSIGN || op == TOKEN_SUB_ASSIGN
+           || op == '=');
 	Stmnt* stmnt = stmnt_alloc(STMNT_ASSIGN);
 	stmnt->assign_stmnt = (AssignStmnt) { .left = left, .right = right, .op = op };
 	return stmnt;
