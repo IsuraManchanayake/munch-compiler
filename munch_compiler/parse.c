@@ -1,5 +1,3 @@
-#pragma TODO("PARSE ALL!!!")
-
 Stmnt* parse_stmnt();
 Expr* parse_expr();
 TypeSpec* parse_typespec();
@@ -45,7 +43,7 @@ TypeSpec* parse_type_base() {
         expect_token(')');
         return type;
     }
-    syntax_error("Expected a base type. Found <ASCII %d>", token.type);
+    syntax_error("Expected a base type. Found %s", token_to_str(token));
 }
 
 TypeSpec* parse_typespec() {
@@ -82,7 +80,13 @@ Expr* parse_expr_literal() {
         next_token();
         return expr_str(strval);
     }
-    syntax_error("Expected a literal. Found <ASCII %d>", token.type);
+    else if (match_keyword(kwrd_true)) {
+        return expr_int(1);
+    }
+    else if (match_keyword(kwrd_false)) {
+        return expr_int(0);
+    }
+    syntax_error("Expected a literal. Found %s", token_to_str(token));
 }
 
 Expr* parse_expr_compound(TypeSpec* type) {
@@ -125,7 +129,7 @@ Expr* parse_expr_operand() {
             return parse_expr();
         }
     }
-    syntax_error("Expected an operand expression. Found <ASCII %d>", token.type);
+    syntax_error("Expected an operand expression. Found %s", token_to_str(token));
 }
 
 Expr* parse_expr_base() {
@@ -166,7 +170,7 @@ Expr* parse_expr_unary() {
     if (is_unary_op()) {
         TokenType unary_op = token.type;
         next_token();
-        return expr_unary(EXPR_PRE_UNARY, unary_op, parse_expr_base());
+        return expr_unary(EXPR_PRE_UNARY, unary_op, parse_expr_unary());
     }
     return parse_expr_base();
 }
@@ -342,7 +346,7 @@ Stmnt* parse_stmnt_do() {
 Stmnt* parse_for_init_update() {
     Stmnt* stmnt = parse_stmnt_simple();
     if (stmnt->type != STMNT_ASSIGN && stmnt->type != STMNT_EXPR) {
-        syntax_error("Expected an assign statement or expression. Found <STMNT %d>", stmnt->type);
+        basic_syntax_error("Expected an assign statement or expression. Found <STMNT %d>", stmnt->type);
     }
     return stmnt;
 }
@@ -400,7 +404,8 @@ Stmnt* parse_stmnt_block() {
     expect_token('{');
     Stmnt** stmnts = NULL;
     while (!is_token('}')) {
-        buf_push(stmnts, parse_stmnt());
+        Stmnt* stmnt = parse_stmnt();
+        if(stmnt) buf_push(stmnts, stmnt);
     }
     expect_token('}');
     return stmnt_block(buf_len(stmnts), ast_dup(stmnts, sizeof(Stmnt*) * buf_len(stmnts)));
@@ -411,6 +416,9 @@ Stmnt* parse_stmnt_expr() {
 }
 
 Stmnt* parse_stmnt_simple() {
+    if (is_token(';')) {
+        return NULL;
+    }
     Expr* left = parse_expr();
     if (is_assign_op()) {
         TokenType op = token.type;
@@ -540,7 +548,7 @@ Decl* parse_decl_var() {
         return decl_var(name, NULL, parse_expr());
     }
     else {
-        syntax_error("Expected = or : in var declaration. Got %s", get_token_type_name(token.type));
+        syntax_error("Expected = or : in var declaration. Found %s", tokentype_to_str(token.type));
     }
 }
 
@@ -596,7 +604,7 @@ Decl* parse_decl() {
     else if (match_keyword(kwrd_func)) {
         return parse_decl_func();
     }
-    syntax_error("Expected a declaration keyword. Found %s", get_token_type_name(token.type));
+    syntax_error("Expected a declaration keyword. Found %s", tokentype_to_str(token.type));
 }
 
 #define PARSE_SRC_DECL(src) init_stream(src); print_decl(parse_decl()); printf("\n-----------------------------\n")
@@ -613,7 +621,10 @@ parse_test() {
     PARSE_SRC_STMNT("size += {1, 2, 3}.length;");
     PARSE_SRC_STMNT("size += int {1, 2, 3}.length;");
     PARSE_SRC_STMNT("if(a == 1 || b <= a++ / 2) { b++; } else if (c > 2 ? b : a) { d[i][j].mm.s(2, 2); } else if (i <= 3 << 2) {d++;} else {a++; if(i < 2) {d /= gcd(a, b);}}");
-    PARSE_SRC_STMNT("for(i = 0; i < 10; i++, ++k) {printf(\"hello %d\", i); }");
+    PARSE_SRC_STMNT("for(i = 0; i < 10; i++, ++k) {printf(\"hello %d\", i); if(false) {continue;}}");
+    PARSE_SRC_STMNT("{while(i < 10 && **j == 20) {a[2][b[3]]=i;} a++;}");
+    PARSE_SRC_STMNT("do{ forever(\"Hi \\\"Isura\\\"\");} while(true);");
+    PARSE_SRC_STMNT("{ ;;a++;;;;;}");
 
     PARSE_SRC_DECL("var v : int = 1");
     PARSE_SRC_DECL("enum Animal {dog, cat=2 + 1,}");

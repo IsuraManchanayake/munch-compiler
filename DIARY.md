@@ -1,5 +1,13 @@
 # Diary
 
+## 25 July 2018 4 AM
+
+- bugs in char and string literal token parsing are fixed
+- token and token type to string methods are added
+- true/false keywords parsing as literals is added
+- empty statements (consecutive semicolons) parsing is added
+- strings are printed along with escape characters
+
 ## 24 July 2018 4 AM
 
 - custom exit codes are added for memory allocation errors

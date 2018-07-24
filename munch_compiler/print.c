@@ -1,72 +1,38 @@
-void print_token(Token token) {
-    switch (token.type) {
-    case TOKEN_INT:
-        printf("TOKEN: TOKEN_INT %llu\n", token.intval);
-        break;
-    case TOKEN_FLOAT:
-        printf("TOKEN: TOKEN_FLOAT %f\n", token.floatval);
-        break;
-    case TOKEN_STR:
-        printf("TOKEN: TOKEN_STR %s\n", token.strval);
-        break;
-    case TOKEN_NAME:
-        printf("TOKEN: TOKEN_NAME %s %0X\n", token.name, (int)token.name);
-        break;
-    default:
-        printf("TOKEN: %c\n", token.type);
-    }
-}
-
-const char* op_to_str(TokenType op) {
-    switch (op) {
-    case TOKEN_INC:
-        return "++";
-    case TOKEN_DEC:
-        return "--";
-    case TOKEN_LOG_AND:
-        return "&&";
-    case TOKEN_LOG_OR:
-        return "||";
-    case TOKEN_LSHIFT:
-        return "<<";
-    case TOKEN_RSHIFT:
-        return ">>";
-    case TOKEN_EQ:
-        return "==";
-    case TOKEN_NEQ:
-        return "!=";
-    case TOKEN_LTEQ:
-        return "<=";
-    case TOKEN_GTEQ:
-        return ">=";
-    case TOKEN_COLON_ASSIGN:
-        return ":=";
-    case TOKEN_ADD_ASSIGN:
-        return "+=";
-    case TOKEN_SUB_ASSIGN:
-        return "-=";
-    case TOKEN_DIV_ASSIGN:
-        return "/=";
-    case TOKEN_MUL_ASSIGN:
-        return "*=";
-    case TOKEN_MOD_ASSIGN:
-        return "%=";
-    case TOKEN_BIT_AND_ASSIGN:
-        return "&=";
-    case TOKEN_BIT_OR_ASSIGN:
-        return "|=";
-    case TOKEN_BIT_XOR_ASSIGN:
-        return "^=";
-    case TOKEN_LSHIFT_ASSIGN:
-        return "<<=";
-    case TOKEN_RSHIFT_ASSIGN:
-        return ">>=";
-    }
-    return &(char)op;
-}
-
 void print_expr(Expr*);
 void print_stmnt_block(BlockStmnt);
+
+const char* esc_to_str[256] = {
+    ['\n'] = "\\n",
+    ['\r'] = "\\r",
+    ['\t'] = "\\t",
+    ['\v'] = "\\v",
+    ['\b'] = "\\b",
+    ['\a'] = "\\a",
+    ['\f'] = "\\f",
+    ['\0'] = "\\0",
+    ['"'] = "\\\"",
+    ['\\'] = "\\\\"
+};
+
+void print_str(const char* str) {
+    printf("\"");
+    for (size_t i = 0; i < strlen(str); i++) {
+        if (esc_to_str[str[i]]) {
+            //printf("%d", strlen(esc_to_str[str[i]]));
+            printf("%s", esc_to_str[str[i]]);
+        }
+        else {
+            printf("%c", str[i]);
+        }
+    }
+    printf("\"");
+}
+
+void print_char(char c) {
+    printf("'");
+    (c != '"' && esc_to_str[c]) ? printf("%s", esc_to_str[c]) : (c == '\'' ? printf("\\'") : printf("%c", c));
+    printf("'");
+}
 
 void print_op(TokenType op) {
     printf("%s", op_to_str(op));
@@ -266,7 +232,7 @@ void print_expr(Expr* expr) {
         printf("%f", expr->float_expr.float_val);
         break;
     case EXPR_STR:
-        printf("\"%s\"", expr->str_expr.str_val);
+        print_str(expr->str_expr.str_val);
         break;
     case EXPR_NAME:
         printf("%s", expr->name_expr.name);

@@ -39,7 +39,7 @@ void fatal(const char* fmt, ...) {
     exit(1);
 }
 
-void syntax_error(const char* fmt, ...) {
+void basic_syntax_error(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     printf("SYNTAX ERROR: ");

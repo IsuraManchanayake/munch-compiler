@@ -153,11 +153,11 @@ void scan_int() {
             break;
         }
         if (digit >= base) {
-            syntax_error("Invalid integer literal %d for base %d", digit, base);
+            basic_syntax_error("Invalid integer literal %d for base %d", digit, base);
             digit = 0;
         }
         if (val > (UINT64_MAX - digit) / base) {
-            syntax_error("Integer literal overflow");
+            basic_syntax_error("Integer literal overflow");
             while (isdigit(*stream)) stream++;
             val = 0;
         }
@@ -176,7 +176,7 @@ void scan_float() {
     if (tolower(*stream) == 'e') {
         stream++;
         if (*stream != '+' && *stream != '-' && !isdigit(*stream)) {
-            syntax_error("Expected digit or sign after exponent in the float literal. Found '%c'", *stream);
+            basic_syntax_error("Expected digit or sign after exponent in the float literal. Found '%c'", *stream);
         }
         if (!isdigit(*stream)) stream++;
         while (isdigit(*stream)) stream++;
@@ -188,13 +188,13 @@ void scan_float() {
     }
     double val = strtod(start, NULL);
     if (val == HUGE_VAL || val == -HUGE_VAL) {
-        syntax_error("Float literal overflow");
+        basic_syntax_error("Float literal overflow");
     }
     token.type = TOKEN_FLOAT;
     token.floatval = val;
 }
 
-const char escape_to_char[256] = {
+const char esc_to_char[256] = {
     ['n'] = '\n',
     ['r'] = '\r',
     ['t'] = '\t',
@@ -203,20 +203,26 @@ const char escape_to_char[256] = {
     ['a'] = '\a',
     ['f'] = '\f',
     ['0'] = '\0',
+    ['"'] = '"',
+    ['\''] = '\'',
+    ['\\'] = '\\'
 };
 
 void scan_char() {
     stream++;
     char val;
+    if (*stream == '\'') {
+        basic_syntax_error("Char literal should be of length 1");
+    }
     if (*stream == '\n' || *stream == '\r' || *stream == '\a' || 
         *stream == '\b' || *stream == '\f' || *stream == '\v') {
-        syntax_error("Char literals cannot have escape characters inside quotes. Found ASCII %d", (int)(*stream));
+        basic_syntax_error("Char literals cannot have escape characters inside quotes. Found <ASCII %d>.", (int)(*stream));
     }
     if (*stream == '\\') {
         stream++;
-        val = escape_to_char[*stream];
+        val = *stream == '"' ? 0 : esc_to_char[*stream];
         if (val == 0 && *stream != '0') {
-            syntax_error("Undefined escape char literal");
+            basic_syntax_error("Undefined escape char literal");
         }
         stream++;
     }
@@ -225,7 +231,7 @@ void scan_char() {
         stream++;
     }
     if(*stream != '\'') {
-        syntax_error("Char literal should be ended with '\''. Found '%c'", *stream);
+        basic_syntax_error("Char literal should be ended with \'. Found '%c'.", *stream);
     }
     stream++;
     token.type = TOKEN_INT;
@@ -239,7 +245,7 @@ void scan_str() {
     while (*stream && *stream != '"') {
         char val;
         if (*stream == '\a' || *stream == '\b' || *stream == '\f' || *stream == '\v') {
-            syntax_error("String literals cannot have escape characters inside quotes. Found ASCII %d", (int)(*stream));
+            basic_syntax_error("String literals cannot have escape characters inside quotes. Found <ASCII %d>.", (int)(*stream));
         }
         if (*stream == '\n' || *stream == '\r') {
             buf_push(str_buf, *stream);
@@ -247,9 +253,9 @@ void scan_str() {
         }
         if (*stream == '\\') {
             stream++;
-            val = escape_to_char[*stream];
+            val = *stream == '\'' ? 0 : esc_to_char[*stream];
             if (val == 0 && *stream != '0') {
-                syntax_error("Undefined escape char literal");
+                basic_syntax_error("Undefined escape char literal");
             }
             buf_push(str_buf, val);
             stream++;
@@ -261,7 +267,7 @@ void scan_str() {
         }
     }
     if (*stream != '"') {
-        syntax_error("String literal should be ended with '\"'. Found %c", *stream);
+        basic_syntax_error("String literal should be ended with '\"'. Found %c", *stream);
     }
     buf_push(str_buf, 0);
     stream++;
@@ -383,6 +389,159 @@ void init_stream(const char* src) {
     next_token();
 }
 
+const char* op_to_str(TokenType op) {
+    switch (op) {
+    case TOKEN_INC:
+        return "++";
+    case TOKEN_DEC:
+        return "--";
+    case TOKEN_LOG_AND:
+        return "&&";
+    case TOKEN_LOG_OR:
+        return "||";
+    case TOKEN_LSHIFT:
+        return "<<";
+    case TOKEN_RSHIFT:
+        return ">>";
+    case TOKEN_EQ:
+        return "==";
+    case TOKEN_NEQ:
+        return "!=";
+    case TOKEN_LTEQ:
+        return "<=";
+    case TOKEN_GTEQ:
+        return ">=";
+    case TOKEN_COLON_ASSIGN:
+        return ":=";
+    case TOKEN_ADD_ASSIGN:
+        return "+=";
+    case TOKEN_SUB_ASSIGN:
+        return "-=";
+    case TOKEN_DIV_ASSIGN:
+        return "/=";
+    case TOKEN_MUL_ASSIGN:
+        return "*=";
+    case TOKEN_MOD_ASSIGN:
+        return "%=";
+    case TOKEN_BIT_AND_ASSIGN:
+        return "&=";
+    case TOKEN_BIT_OR_ASSIGN:
+        return "|=";
+    case TOKEN_BIT_XOR_ASSIGN:
+        return "^=";
+    case TOKEN_LSHIFT_ASSIGN:
+        return "<<=";
+    case TOKEN_RSHIFT_ASSIGN:
+        return ">>=";
+    }
+    static char op_buf[2];
+    op_buf[0] = op;
+    op_buf[1] = 0;
+    return op_buf;
+}
+
+const char* token_to_str(Token tok) {
+    static char buf[256];
+    switch (tok.type) {
+    case TOKEN_EOF:
+        sprintf_s(buf, sizeof(buf), "<TOKEN_EOF>");
+        break;
+    case TOKEN_LAST_CHAR:
+        sprintf_s(buf, sizeof(buf), "<TOKEN_LAST_CHAR>");
+        break;
+    case TOKEN_KEYWORD:
+        sprintf_s(buf, sizeof(buf), "<KEYWORD %s>", tok.name);
+        break;
+    case TOKEN_INT:
+        sprintf_s(buf, sizeof(buf), tok.mod == TOK_MOD_CHAR ? "<CHAR %c>" : "<INT %d>", tok.intval);
+        break;
+    case TOKEN_FLOAT:
+        sprintf_s(buf, sizeof(buf), "<FLOAT %f>", tok.floatval);
+        break;
+    case TOKEN_STR:
+        sprintf_s(buf, sizeof(buf), "<STR %s>", tok.strval);
+        break;
+    case TOKEN_NAME:
+        sprintf_s(buf, sizeof(buf), "<NAME %s>", tok.name);
+        break;
+    default:
+        if (tok.type >= TOKEN_INC && tok.type <= TOKEN_RSHIFT_ASSIGN) {
+            sprintf_s(buf, sizeof(buf), "<OP %s>", op_to_str(tok.type));
+        }
+        else if (tok.type < 127) {
+            sprintf_s(buf, sizeof(buf), "<%c>", tok.type);
+        }
+        else {
+            sprintf_s(buf, sizeof(buf), "<ASCII %d(%c)>", tok.type, tok.type);
+        }
+    }
+    return buf;
+}
+
+const char* tokentype_to_str(TokenType type) {
+    static char buf[256];
+    switch (type) {
+    case TOKEN_LAST_CHAR:
+        sprintf_s(buf, sizeof(buf), "TOKEN_LAST_CHAR");
+        break;
+    case TOKEN_INT:
+        sprintf_s(buf, sizeof(buf), "TOKEN_INT");
+        break;
+    case TOKEN_FLOAT:
+        sprintf_s(buf, sizeof(buf), "TOKEN_FLOAT");
+        break;
+    case TOKEN_STR:
+        sprintf_s(buf, sizeof(buf), "TOKEN_STR");
+        break;
+    case TOKEN_NAME:
+        sprintf_s(buf, sizeof(buf), "TOKEN_NAME");
+        break;
+    case TOKEN_KEYWORD:
+        sprintf_s(buf, sizeof(buf), "TOKEN_KEYWORD");
+        break;
+    case TOKEN_EOF:
+        sprintf_s(buf, sizeof(buf), "TOKEN_EOF");
+        break;
+    default:
+        if (type < 128 && isprint(type)) {
+            sprintf_s(buf, sizeof(buf), "%c", type);
+        }
+        else if (type < TOKEN_RSHIFT_ASSIGN) {
+            sprintf_s(buf, sizeof(buf), "\"%s\"", op_to_str(type));
+        }
+        else {
+            sprintf_s(buf, sizeof(buf), "<ASCII %d(%c)>", type, type);
+        }
+    }
+    return buf;
+}
+
+#define ERROR_DISPLAY_WIDTH 20
+
+void show_error_token() {
+    size_t curr = token.start - src_start;
+    size_t left = max(curr - ERROR_DISPLAY_WIDTH / 2, 0);
+    size_t len = (left + ERROR_DISPLAY_WIDTH) % (strlen(src_start)) - left;
+    printf("%.*s\n", len, src_start + left);
+    size_t err_pos = curr - left;
+    if (err_pos) {
+        char* ss = malloc(sizeof(char) * (err_pos + 1));
+        memset(ss, ' ', sizeof(char) * err_pos);
+        ss[err_pos] = 0;
+        printf("%s^\n", ss);
+        free(ss);
+    }
+    else {
+        printf("^\n");
+    }
+}
+
+#define syntax_error(fmt, ...) \
+    do { \
+        show_error_token(); \
+        basic_syntax_error(fmt, __VA_ARGS__); \
+    } while(0)
+
 inline bool is_token(TokenType type) {
     return token.type == type;
 }
@@ -412,56 +571,6 @@ inline bool match_keyword(const char* name) {
     return false;
 }
 
-#pragma TODO("Write a correct version of get_token_type_name (for all TokenTypes)")
-const char* get_token_type_name(TokenType type) {
-    static char buf[256];
-    switch (type) {
-    case TOKEN_LAST_CHAR:
-        sprintf_s(buf, 256, "TOKEN_LAST_CHAR");
-        break;
-    case TOKEN_INT:
-        sprintf_s(buf, 256, "TOKEN_INT");
-        break;
-    case TOKEN_FLOAT:
-        sprintf_s(buf, 256, "TOKEN_FLOAT");
-        break;
-    case TOKEN_STR:
-        sprintf_s(buf, 256, "TOKEN_STR");
-        break;
-    case TOKEN_NAME:
-        sprintf_s(buf, 256, "TOKEN_NAME");
-        break;
-    default:
-        if (type < 128 && isprint(type)) {
-            sprintf_s(buf, 256, "%c", type);
-        }
-        else {
-            sprintf_s(buf, 256, "<ASCII %d>", type);
-        }
-    }
-    return buf;
-}
-
-#define ERROR_DISPLAY_WIDTH 20
-
-void show_error_token() {
-    size_t curr = token.start - src_start;
-    size_t left = max(curr - ERROR_DISPLAY_WIDTH / 2, 0);
-    size_t len = (left + ERROR_DISPLAY_WIDTH) % (strlen(src_start)) - left;
-    printf("%.*s\n", len, src_start + left);
-    size_t err_pos = curr - left;
-    if (err_pos) {
-        char* ss = malloc(sizeof(char) * (err_pos + 1));
-        memset(ss, ' ', sizeof(char) * err_pos);
-        ss[err_pos] = 0;
-        printf("%s^\n", ss);
-        free(ss);
-    }
-    else {
-        printf("^\n");
-    }
-}
-
 inline bool expect_token(TokenType type) {
     if (is_token(type)) {
         next_token();
@@ -469,7 +578,7 @@ inline bool expect_token(TokenType type) {
     }
     else {
         show_error_token();
-        fatal("expected token %s. got %s", get_token_type_name(type), get_token_type_name(token.type));
+        fatal("Expected token %s. Found %s.", tokentype_to_str(type), token_to_str(token));
         return false;
     }
 }
@@ -481,13 +590,13 @@ inline bool expect_keyword(const char* name) {
     }
     else {
         show_error_token();
-        fatal("expected keyword %s. got %s", name, token.name);
+        fatal("Expected keyword \"%s\". Found \"%s\".", name, token_to_str(token));
         return false;
     }
 }
 
 inline bool is_literal() {
-    return token.type >= TOKEN_INT && token.type <= TOKEN_STR;
+    return (token.type >= TOKEN_INT && token.type <= TOKEN_STR) || (token.type == TOKEN_KEYWORD && (token.name == kwrd_true || token.name == kwrd_false));
 }
 
 inline bool is_cmp_op() {
@@ -523,81 +632,9 @@ inline bool expect_assign_op() {
     }
     else {
         show_error_token();
-        fatal("expected an assign operator. got %s", get_token_type_name(token.type));
+        fatal("Expected an assign operator. Found %s", tokentype_to_str(token.type));
     }
 }
-
-// (temp) calculator --------------------------------
-
-int32_t parse_e();
-
-int32_t parse_e3() {
-    if (is_token(TOKEN_INT)) {
-        int32_t val = token.intval;
-        next_token();
-        return val;
-    }
-    else if (is_token('(')) {
-        next_token();
-        int32_t val = parse_e();
-        expect_token(')');
-        return val;
-    }
-    else {
-        show_error_token();
-        fatal("expected int or expr. got %s", get_token_type_name(token.type));
-    }
-}
-
-int32_t parse_e2() {
-    if (is_token('-')) {
-        next_token();
-        int32_t val = parse_e2();
-        return -val;
-    }
-    else {
-        return parse_e3();
-    }
-}
-
-int32_t parse_e1() {
-    int32_t val = parse_e2();
-    while (is_token('/') || is_token('*')) {
-        char op = token.type;
-        next_token();
-        int32_t res = parse_e2();
-        if (op == '*') {
-            val *= res;
-        }
-        else {
-            assert(res != 0);
-            val /= res;
-        }
-    }
-    return val;
-}
-
-int32_t parse_e0() {
-    int32_t val = parse_e1();
-    while (is_token('+') || is_token('-')) {
-        char op = token.type;
-        next_token();
-        int32_t res = parse_e1();
-        if (op == '+') {
-            val += res;
-        }
-        else {
-            val -= res;
-        }
-    }
-    return val;
-}
-
-int32_t parse_e() {
-    return parse_e0();
-}
-
-// --------------------------------------------------
 
 #define assert_token_type(type) (assert(match_token((type))))
 #define assert_token_name(x) (assert(str_intern((x)) == token.name && match_token(TOKEN_NAME)))
@@ -607,9 +644,10 @@ int32_t parse_e() {
 #define assert_token_str(x) (assert(strcmp(token.strval, (x)) == 0 && match_token(TOKEN_STR)))
 #define assert_token_char(x) (assert(token.intval == (x) && token.mod == TOK_MOD_CHAR && match_token(TOKEN_INT)))
 #define assert_token_eof() (assert(is_token(0)))
-#define init_stream(src) (src_start = (src), stream = (src), next_token())
 
-_lex_test() {
+lex_test() {
+    printf("----- lex.c -----\n");
+
     init_keywords();
 
     init_stream("0 032  + 0x111f");
@@ -654,6 +692,14 @@ _lex_test() {
     assert_token_str("hel\nlo\n world!");
     assert_token_eof();
 
+    init_stream("\"a\" \"\" \"'\" \"\\\"\" '\"' '\\''");
+    assert_token_str("a");
+    assert_token_str("");
+    assert_token_str("'");
+    assert_token_str("\"");
+    assert_token_int('"');
+    assert_token_int('\'');
+
     init_stream("case '2':");
     assert_token_keyword(kwrd_case);
     assert_token_char('2');
@@ -677,29 +723,3 @@ _lex_test() {
 #undef assert_token_str
 #undef assert_token_char
 #undef assert_token_eof
-#undef init_stream
-
-int32_t parse_src(const char* src) {
-    init_stream(src);
-    return parse_e();
-}
-
-#define TEST_PARSE(expr) (assert(parse_src(#expr) == (expr)))
-
-_parse_test() {
-    TEST_PARSE(10 + 1);
-    TEST_PARSE(2);
-    TEST_PARSE(-23423423);
-    TEST_PARSE(-(3 - 5));
-    TEST_PARSE(4 / 2 + 1);
-    TEST_PARSE(-1 * (2 + (3 - 6 / 3)));
-    printf("parse test passed\n");
-}
-
-#undef TEST_PARSE
-
-void lex_test() {
-    printf("----- lex.c -----\n");
-    _lex_test();
-    _parse_test();
-}
