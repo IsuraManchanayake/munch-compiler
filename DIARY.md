@@ -1,5 +1,9 @@
 # Diary
 
+## 26 July 2018 4 AM
+
+- symbol resolver is added (for order dependencies in declarations)
+
 ## 25 July 2018 4 AM
 
 - bugs in char and string literal token parsing are fixed
