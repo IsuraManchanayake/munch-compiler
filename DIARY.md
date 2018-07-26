@@ -1,5 +1,12 @@
 # Diary
 
+## 27 July 2018 3 AM
+
+- hash consing for ptr, array and func types is added
+- array type attributes of asts are duplicated
+- arena_free is added
+- void return parsing is added
+
 ## 26 July 2018 4 AM
 
 - symbol resolver is added (for order dependencies in declarations)

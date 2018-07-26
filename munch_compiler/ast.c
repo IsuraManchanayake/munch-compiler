@@ -21,6 +21,8 @@ void* ast_dup(const void* ast, size_t size) {
     return dup;
 }
 
+#define _ast_dup(x) (ast_dup(x, num_##x * sizeof(*x)))
+
 // Enums   ================================================
 
 typedef enum DeclType {
@@ -126,7 +128,7 @@ TypeSpec* typespec_name(const char* name) {
 
 TypeSpec* typespec_func(TypeSpec* ret_type, size_t num_params, TypeSpec** params) {
     TypeSpec* typespec = typespec_alloc(TYPESPEC_FUNC);
-    typespec->func = (FuncTypeSpec) { .ret_type=ret_type, .num_params=num_params, .params=params };
+    typespec->func = (FuncTypeSpec) { .ret_type=ret_type, .num_params=num_params, .params=_ast_dup(params) };
     return typespec;
 }
 
@@ -219,14 +221,14 @@ Decl* decl_alloc(DeclType type, const char* name) {
 
 Decl* decl_enum(const char* name, size_t num_enum_items, EnumItem* enum_items) {
 	Decl* decl = decl_alloc(DECL_ENUM, name);
-	decl->enum_decl = (EnumDecl) { .num_enum_items=num_enum_items, .enum_items=enum_items};
+	decl->enum_decl = (EnumDecl) { .num_enum_items = num_enum_items, .enum_items = _ast_dup(enum_items) };
 	return decl;
 }
 
 Decl* decl_aggregate(DeclType type, const char* name, size_t num_aggregate_items, AggregateItem* aggregate_items) {
 	assert(type == DECL_UNION || type == DECL_STRUCT);
 	Decl* decl = decl_alloc(type, name);
-	decl->aggregate_decl = (AggregateDecl) { .num_aggregate_items = num_aggregate_items, .aggregate_items = aggregate_items };
+	decl->aggregate_decl = (AggregateDecl) { .num_aggregate_items = num_aggregate_items, .aggregate_items = _ast_dup(aggregate_items) };
 	return decl;
 }
 
@@ -250,7 +252,7 @@ Decl* decl_typedef(const char* name, TypeSpec* type) {
 
 Decl* decl_func(const char* name, size_t num_params, FuncParam* params, TypeSpec* ret_type, BlockStmnt block) {
 	Decl* decl = decl_alloc(DECL_FUNC, name);
-	decl->func_decl = (FuncDecl) { .num_params = num_params, .params = params, .ret_type = ret_type, .block = block };
+	decl->func_decl = (FuncDecl) { .num_params = num_params, .params = _ast_dup(params), .ret_type = ret_type, .block = block };
 	return decl;
 }
 
@@ -409,7 +411,7 @@ Expr* expr_ternary(Expr* cond, Expr* left, Expr* right) {
 
 Expr* expr_call(Expr* call_expr, size_t num_args, Expr** args) {
     Expr* expr = expr_alloc(EXPR_CALL);
-	expr->call_expr = (CallExpr) { .expr=call_expr, .num_args=num_args, .args=args };
+	expr->call_expr = (CallExpr) { .expr=call_expr, .num_args=num_args, .args=_ast_dup(args) };
     return expr;
 }
 
@@ -427,7 +429,7 @@ Expr* expr_field(Expr* call_expr, const char* field) {
 
 Expr* expr_compound(TypeSpec* type, size_t num_exprs, Expr** exprs) {
     Expr* expr = expr_alloc(EXPR_COMPOUND);
-	expr->compound_expr = (CompoundExpr) { .type=type, .num_exprs=num_exprs, .exprs=exprs };
+	expr->compound_expr = (CompoundExpr) { .type=type, .num_exprs=num_exprs, .exprs=_ast_dup(exprs) };
     return expr;
 }
 
@@ -525,7 +527,7 @@ Stmnt* stmnt_ifelseif(Expr* if_cond, BlockStmnt then_block, size_t num_else_ifs,
 		.if_cond=if_cond, 
 		.then_block= then_block,
 		.num_else_ifs=num_else_ifs,
-		.else_ifs=else_ifs, 
+		.else_ifs=_ast_dup(else_ifs), 
 		.else_block=else_block
 	};
 	return stmnt;
@@ -536,7 +538,7 @@ Stmnt* stmnt_switch(Expr* switch_expr, size_t num_case_blocks, CaseBlock* case_b
 	stmnt->switch_stmnt = (SwitchStmnt) { 
 		.switch_expr = switch_expr, 
 		.num_case_blocks = num_case_blocks,
-		.case_blocks = case_blocks,
+		.case_blocks = _ast_dup(case_blocks),
 		.default_block = default_block
 	};
 	return stmnt;
@@ -551,7 +553,14 @@ Stmnt* stmnt_while(StmntType type, Expr* cond, BlockStmnt block) {
 
 Stmnt* stmnt_for(size_t num_init, Stmnt** init, Expr* cond, size_t num_update, Stmnt** update, BlockStmnt block) {
 	Stmnt* stmnt = stmnt_alloc(STMNT_FOR);
-	stmnt->for_stmnt = (ForStmnt) { .num_init=num_init, .init = init, .cond = cond, .num_update=num_update, .update = update, .block = block };
+	stmnt->for_stmnt = (ForStmnt) { 
+        .num_init=num_init,
+        .init = _ast_dup(init),
+        .cond = cond, 
+        .num_update=num_update, 
+        .update = _ast_dup(update),
+        .block = block 
+    };
 	return stmnt;
 }
 
@@ -585,6 +594,8 @@ Stmnt* stmnt_expr(Expr* expr) {
     stmnt->expr_stmnt = (ExprStmnt) { .expr = expr };
     return stmnt;
 }
+
+#undef _ast_dup
 
 // ========================================================
 

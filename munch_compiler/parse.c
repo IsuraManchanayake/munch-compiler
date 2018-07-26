@@ -385,7 +385,10 @@ Stmnt* parse_stmnt_assign() {
 }
 
 Stmnt* parse_stmnt_return() {
-    Expr* expr = parse_expr();
+    Expr* expr = NULL;
+    if (!is_token(';')) {
+        expr = parse_expr();
+    }
     expect_token(';');
     return stmnt_return(expr);
 }
@@ -408,7 +411,7 @@ Stmnt* parse_stmnt_block() {
         if(stmnt) buf_push(stmnts, stmnt);
     }
     expect_token('}');
-    return stmnt_block(buf_len(stmnts), ast_dup(stmnts, sizeof(Stmnt*) * buf_len(stmnts)));
+    return stmnt_block(buf_len(stmnts), stmnts);
 }
 
 Stmnt* parse_stmnt_expr() {

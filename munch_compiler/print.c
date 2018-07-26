@@ -54,7 +54,9 @@ void print_stmnt(Stmnt* stmnt) {
     switch (stmnt->type) {
     case STMNT_RETURN:
         printf("return ");
-        print_expr(stmnt->return_stmnt.expr);
+        if (stmnt->return_stmnt.expr) {
+            print_expr(stmnt->return_stmnt.expr);
+        }
         break;
     case STMNT_IF_ELSE:
         printf("if (");
