@@ -272,6 +272,16 @@ void print_expr(Expr* expr) {
         print_expr(expr->field_expr.expr);
         printf(" %s)", expr->field_expr.field);
         break;
+    case EXPR_SIZEOF_TYPE:
+        printf("(sizeof :");
+        print_typespec(expr->sizeof_expr.type);
+        printf(")");
+        break;
+    case EXPR_SIZEOF_EXPR:
+        printf("(sizeof ");
+        print_expr(expr->sizeof_expr.expr);
+        printf(")");
+        break;
     default:
         assert(0);
     }

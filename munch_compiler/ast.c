@@ -50,7 +50,9 @@ typedef enum ExprType {
     EXPR_COMPOUND,
     EXPR_CAST,
     EXPR_INDEX,
-    EXPR_FIELD
+    EXPR_FIELD,
+    EXPR_SIZEOF_TYPE,
+    EXPR_SIZEOF_EXPR
 } ExprType;
 
 typedef enum StmntType {
@@ -320,6 +322,13 @@ typedef struct FieldExpr {
 	const char* field;
 } FieldExpr;
 
+typedef struct SizeofExpr {
+    union {
+        TypeSpec* type;
+        Expr* expr;
+    };
+} SizeofExpr;
+
 // --------------------------------------------------------
 
 struct Expr {
@@ -338,6 +347,7 @@ struct Expr {
 		CastExpr cast_expr;
 		IndexExpr index_expr;
 		FieldExpr field_expr;
+        SizeofExpr sizeof_expr;
     };
 };
 
@@ -389,8 +399,6 @@ Expr* expr_unary(ExprType unary_type, TokenType op, Expr* uexpr) {
     return expr;
 }
 
-
-
 Expr* expr_binary(TokenType op, Expr* left, Expr* right) {
 	assert(op == TOKEN_LOG_AND || op == TOKEN_LOG_OR || op == TOKEN_LSHIFT 
 		|| op == TOKEN_RSHIFT || op == TOKEN_EQ || op == TOKEN_NEQ
@@ -430,6 +438,18 @@ Expr* expr_field(Expr* call_expr, const char* field) {
 Expr* expr_compound(TypeSpec* type, size_t num_exprs, Expr** exprs) {
     Expr* expr = expr_alloc(EXPR_COMPOUND);
 	expr->compound_expr = (CompoundExpr) { .type=type, .num_exprs=num_exprs, .exprs=_ast_dup(exprs) };
+    return expr;
+}
+
+Expr* expr_sizeof_type(TypeSpec* s_type) {
+    Expr* expr = expr_alloc(EXPR_SIZEOF_TYPE);
+    expr->sizeof_expr.type = s_type;
+    return expr;
+}
+
+Expr* expr_sizeof_expr(Expr* s_expr) {
+    Expr* expr = expr_alloc(EXPR_SIZEOF_EXPR);
+    expr->sizeof_expr.expr = s_expr;
     return expr;
 }
 

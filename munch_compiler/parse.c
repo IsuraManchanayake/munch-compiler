@@ -132,7 +132,23 @@ Expr* parse_expr_operand() {
     syntax_error("Expected an operand expression. Found %s", token_to_str(token));
 }
 
+Expr* parse_expr_sizeof() {
+    expect_token('(');
+    Expr* expr = NULL;
+    if (match_token(':')) {
+        expr = expr_sizeof_type(parse_typespec());
+    }
+    else {
+        expr = expr_sizeof_expr(parse_expr());
+    }
+    expect_token(')');
+    return expr;
+}
+
 Expr* parse_expr_base() {
+    if (match_keyword(kwrd_sizeof)) {
+        return parse_expr_sizeof();
+    }
     Expr* operand_expr = parse_expr_operand();
     while (true) {
         if (match_token('(')) {
@@ -607,7 +623,7 @@ Decl* parse_decl() {
     else if (match_keyword(kwrd_func)) {
         return parse_decl_func();
     }
-    syntax_error("Expected a declaration keyword. Found %s", tokentype_to_str(token.type));
+    syntax_error("Expected a declaration keyword. Found %s", token_to_str(token));
 }
 
 #define PARSE_SRC_DECL(src) init_stream(src); print_decl(parse_decl()); printf("\n-----------------------------\n")
@@ -628,6 +644,7 @@ parse_test() {
     PARSE_SRC_STMNT("{while(i < 10 && **j == 20) {a[2][b[3]]=i;} a++;}");
     PARSE_SRC_STMNT("do{ forever(\"Hi \\\"Isura\\\"\");} while(true);");
     PARSE_SRC_STMNT("{ ;;a++;;;;;}");
+    PARSE_SRC_STMNT("{ a++; a = sizeof(b + c) / sizeof(:int[3]); }");
 
     PARSE_SRC_DECL("var v : int = 1");
     PARSE_SRC_DECL("enum Animal {dog, cat=2 + 1,}");

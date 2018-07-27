@@ -1,5 +1,10 @@
 # Diary
 
+## 28 July 2018 4 AM
+
+- decl, typespec, expr ordering are added
+- builtin sizeof exprs and types is added
+
 ## 27 July 2018 3 AM
 
 - hash consing for ptr, array and func types is added

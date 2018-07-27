@@ -17,6 +17,7 @@ const char* kwrd_sizeof;
 const char* kwrd_var;
 const char* kwrd_func;
 const char* kwrd_typedef;
+const char* kwrd_sizeof;
 const char* kwrd_true;
 const char* kwrd_false;
 
@@ -50,6 +51,7 @@ void init_keywords() {
     INIT_KEYWORD(var);
     INIT_KEYWORD(func);
     INIT_KEYWORD(typedef);
+    INIT_KEYWORD(sizeof);
     INIT_KEYWORD(true);
     INIT_KEYWORD(false);
     first_kwrd = kwrd_if;
