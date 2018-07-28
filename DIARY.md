@@ -1,5 +1,9 @@
 # Diary
 
+## 29 July 2018 4 AM
+
+- resolving decls using entities is partially completed
+
 ## 28 July 2018 4 AM
 
 - decl, typespec, expr ordering are added
