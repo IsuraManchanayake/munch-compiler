@@ -7,11 +7,6 @@ typedef struct FuncParam FuncParam;
 
 Arena ast_arena;
 
-typedef struct BlockStmnt {
-    size_t num_stmnts;
-    Stmnt** stmnts;
-} BlockStmnt;
-
 void* ast_dup(const void* ast, size_t size) {
     if (ast == NULL || size == 0) {
         return NULL;
@@ -23,52 +18,12 @@ void* ast_dup(const void* ast, size_t size) {
 
 #define _ast_dup(x) (ast_dup(x, num_##x * sizeof(*x)))
 
-// Enums   ================================================
+typedef struct BlockStmnt {
+    size_t num_stmnts;
+    Stmnt** stmnts;
+} BlockStmnt;
 
-typedef enum DeclType {
-    DECL_NONE,
-    DECL_ENUM,
-    DECL_STRUCT,
-    DECL_UNION,
-    DECL_CONST,
-    DECL_VAR,
-    DECL_TYPEDEF,
-    DECL_FUNC
-} DeclType;
-
-typedef enum ExprType {
-    EXPR_NONE,
-    EXPR_TERNARY,
-    EXPR_BINARY,
-    EXPR_PRE_UNARY,
-    EXPR_POST_UNARY,
-    EXPR_CALL,
-    EXPR_INT,
-    EXPR_FLOAT,
-    EXPR_STR,
-    EXPR_NAME,
-    EXPR_COMPOUND,
-    EXPR_CAST,
-    EXPR_INDEX,
-    EXPR_FIELD,
-    EXPR_SIZEOF_TYPE,
-    EXPR_SIZEOF_EXPR
-} ExprType;
-
-typedef enum StmntType {
-    STMNT_NONE,
-    STMNT_RETURN,
-    STMNT_IF_ELSE,
-    STMNT_SWITCH,
-    STMNT_WHILE,
-    STMNT_DO_WHILE,
-    STMNT_FOR,
-    STMNT_ASSIGN,
-    STMNT_BREAK,
-    STMNT_CONTINUE,
-    STMNT_BLOCK,
-    STMNT_EXPR
-} StmntType;
+// TypeSpecs ==============================================
 
 typedef enum TypeSpecType {
     TYPESPEC_NONE,
@@ -77,10 +32,6 @@ typedef enum TypeSpecType {
     TYPESPEC_ARRAY,
     TYPESPEC_PTR
 } TypeSpecType;
-
-// ========================================================
-
-// TypeSpecs ==============================================
 
 typedef struct NameTypeSpec {
 	const char* name;
@@ -149,6 +100,17 @@ TypeSpec* typespec_ptr(TypeSpec* base) {
 // ========================================================
 
 // Decls ==================================================
+
+typedef enum DeclType {
+    DECL_NONE,
+    DECL_ENUM,
+    DECL_STRUCT,
+    DECL_UNION,
+    DECL_CONST,
+    DECL_VAR,
+    DECL_TYPEDEF,
+    DECL_FUNC
+} DeclType;
 
 typedef struct EnumItem {
     const char* name;
@@ -261,6 +223,25 @@ Decl* decl_func(const char* name, size_t num_params, FuncParam* params, TypeSpec
 // ========================================================
 
 // Exprs ==================================================
+
+typedef enum ExprType {
+    EXPR_NONE,
+    EXPR_TERNARY,
+    EXPR_BINARY,
+    EXPR_PRE_UNARY,
+    EXPR_POST_UNARY,
+    EXPR_CALL,
+    EXPR_INT,
+    EXPR_FLOAT,
+    EXPR_STR,
+    EXPR_NAME,
+    EXPR_COMPOUND,
+    EXPR_CAST,
+    EXPR_INDEX,
+    EXPR_FIELD,
+    EXPR_SIZEOF_TYPE,
+    EXPR_SIZEOF_EXPR
+} ExprType;
 
 typedef struct TernaryExpr {
 	Expr* cond;
@@ -400,9 +381,7 @@ Expr* expr_unary(ExprType unary_type, TokenType op, Expr* uexpr) {
 }
 
 Expr* expr_binary(TokenType op, Expr* left, Expr* right) {
-	assert(op == TOKEN_LOG_AND || op == TOKEN_LOG_OR || op == TOKEN_LSHIFT 
-		|| op == TOKEN_RSHIFT || op == TOKEN_EQ || op == TOKEN_NEQ
-		|| op == TOKEN_LTEQ || op == TOKEN_GTEQ || op == '+'
+	assert((op >= TOKEN_LOG_AND && op <= TOKEN_GTEQ) || op == '+'
 		|| op == '-' || op == '*' || op == '/'
 		|| op == '%' || op == '<' || op == '>'
 		|| op == '&' || op == '|' || op == '^');
@@ -456,6 +435,21 @@ Expr* expr_sizeof_expr(Expr* s_expr) {
 // ========================================================
 
 // Statements =============================================
+
+typedef enum StmntType {
+    STMNT_NONE,
+    STMNT_RETURN,
+    STMNT_IF_ELSE,
+    STMNT_SWITCH,
+    STMNT_WHILE,
+    STMNT_DO_WHILE,
+    STMNT_FOR,
+    STMNT_ASSIGN,
+    STMNT_BREAK,
+    STMNT_CONTINUE,
+    STMNT_BLOCK,
+    STMNT_EXPR
+} StmntType;
 
 typedef struct ElseIfItem {
 	Expr* cond;
@@ -585,11 +579,7 @@ Stmnt* stmnt_for(size_t num_init, Stmnt** init, Expr* cond, size_t num_update, S
 }
 
 Stmnt* stmnt_assign(Expr* left, Expr* right, TokenType op) {
-    assert(op == TOKEN_ADD_ASSIGN || op == TOKEN_BIT_AND_ASSIGN || op == TOKEN_BIT_OR_ASSIGN
-           || op == TOKEN_BIT_XOR_ASSIGN || op == TOKEN_COLON_ASSIGN || op == TOKEN_DIV_ASSIGN
-           || op == TOKEN_MUL_ASSIGN || op == TOKEN_MOD_ASSIGN || op == TOKEN_LSHIFT_ASSIGN
-           || op == TOKEN_RSHIFT_ASSIGN || op == TOKEN_ADD_ASSIGN || op == TOKEN_SUB_ASSIGN
-           || op == '=');
+    assert(is_between(op, TOKEN_COLON_ASSIGN, TOKEN_RSHIFT_ASSIGN) || op == '=');
 	Stmnt* stmnt = stmnt_alloc(STMNT_ASSIGN);
 	stmnt->assign_stmnt = (AssignStmnt) { .left = left, .right = right, .op = op };
 	return stmnt;
@@ -620,5 +610,7 @@ Stmnt* stmnt_expr(Expr* expr) {
 // ========================================================
 
 // tests ==================================================
+
+// see print.c
 
 // ========================================================

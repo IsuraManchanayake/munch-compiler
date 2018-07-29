@@ -671,3 +671,4 @@ parse_test() {
 }
 
 #undef PARSE_SRC_DECL
+#undef PARSE_SRC_STMNT

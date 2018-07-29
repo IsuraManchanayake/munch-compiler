@@ -281,6 +281,8 @@ ResolvedExpr resolved_const(Type* type, int64_t value) {
     return (ResolvedExpr) { .type = type, .is_const = true, .value = value };
 }
 
+void resolve_entity(Entity* entity);
+
 Entity* resolve_name(const char* name) {
     Entity* entity = entity_get(name);
     if (!entity) {
@@ -290,6 +292,8 @@ Entity* resolve_name(const char* name) {
     resolve_entity(entity);
     return entity;
 }
+
+ResolvedExpr resolve_expr(Expr* expr);
 
 int64_t resolve_int_const_expr(Expr* expr);
 

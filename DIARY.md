@@ -1,5 +1,14 @@
 # Diary
 
+> Notice: The project will be postponed until the exam (18  August). Until then, the commits wiil be just minor changes.
+
+## 30 July 2018 3 AM
+
+- minor changes applied
+    - tabs are replaced with spaces
+    - is_between, is_token_between macro is added
+    - minor order changes of functions are applied
+
 ## 29 July 2018 4 AM
 
 - resolving decls using entities is partially completed

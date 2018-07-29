@@ -50,6 +50,8 @@ void basic_syntax_error(const char* fmt, ...) {
     exit(1);
 }
 
+#define is_between(x, a, b) ((x) >= (a) && (x) <= (b))
+
 typedef struct BufHdr {
     size_t len;
     size_t cap;

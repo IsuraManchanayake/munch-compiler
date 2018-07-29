@@ -17,7 +17,6 @@
 #include "resolve.c"
 #include "test.c"
 
-#pragma TODO("Replace tabs with spaces")
 #pragma TODO("Replace all buf index iterations by buf ptrs")
 
 int main(int argc, char** argv) {

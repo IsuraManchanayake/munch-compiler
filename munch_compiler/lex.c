@@ -597,12 +597,14 @@ inline bool expect_keyword(const char* name) {
     }
 }
 
+#define is_token_between(l, r) is_between(token.type, l, r)
+
 inline bool is_literal() {
-    return (token.type >= TOKEN_INT && token.type <= TOKEN_STR) || (token.type == TOKEN_KEYWORD && (token.name == kwrd_true || token.name == kwrd_false));
+    return is_token_between(TOKEN_INT, TOKEN_STR) || (token.type == TOKEN_KEYWORD && (token.name == kwrd_true || token.name == kwrd_false));
 }
 
 inline bool is_cmp_op() {
-    return token.type == '<' || token.type == '>' || (token.type >= TOKEN_EQ && token.type <= TOKEN_GTEQ);
+    return token.type == '<' || token.type == '>' || is_token_between(TOKEN_EQ, TOKEN_GTEQ);
 }
 
 inline bool is_shift_op() {
@@ -624,7 +626,7 @@ inline bool is_unary_op() {
 }
 
 inline bool is_assign_op() {
-    return token.type == '=' || (token.type >= TOKEN_COLON_ASSIGN && token.type <= TOKEN_RSHIFT_ASSIGN);
+    return token.type == '=' || is_token_between(TOKEN_COLON_ASSIGN, TOKEN_RSHIFT_ASSIGN);
 }
 
 inline bool expect_assign_op() {
@@ -637,6 +639,8 @@ inline bool expect_assign_op() {
         fatal("Expected an assign operator. Found %s", tokentype_to_str(token.type));
     }
 }
+
+#undef is_token_between
 
 #define assert_token_type(type) (assert(match_token((type))))
 #define assert_token_name(x) (assert(str_intern((x)) == token.name && match_token(TOKEN_NAME)))
