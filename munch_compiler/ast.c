@@ -317,7 +317,7 @@ struct Expr {
     union {
 		TernaryExpr ternary_expr;
 		BinaryExpr binary_expr;
-		UnaryExpr unary_expr; // pre inc and dec are included
+		UnaryExpr pre_unary_expr; // pre inc and dec are included
         UnaryExpr post_unary_expr; // only post inc and dec
 		CallExpr call_expr;
 		IntExpr int_expr;
@@ -374,9 +374,9 @@ Expr* expr_cast(TypeSpec* cast_type, Expr* cast_expr) {
 Expr* expr_unary(ExprType unary_type, TokenType op, Expr* uexpr) {
     assert(unary_type == EXPR_PRE_UNARY || unary_type == EXPR_POST_UNARY);
 	assert(op == TOKEN_INC || op == TOKEN_DEC || op == '+'
-		|| op == '-' || op == '*' || op == '!' || op == '~');
+		|| op == '-' || op == '*' || op == '&' || op == '!' || op == '~');
     Expr* expr = expr_alloc(unary_type);
-	expr->unary_expr = (UnaryExpr) { .expr=uexpr, .op=op };
+	expr->pre_unary_expr = (UnaryExpr) { .expr=uexpr, .op=op };
     return expr;
 }
 

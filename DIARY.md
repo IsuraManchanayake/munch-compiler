@@ -1,8 +1,12 @@
 # Diary
 
-> Notice: The project will be postponed until the exam (18  August). Until then, the commits wiil be just minor changes.
+## 28 July 2018 3 AM
 
-## 30 July 2018 3 AM
+- First working version of the resolve.c (YAY!! FINALLY!) is created in my own way
+- address operator was added as a pre unary operator
+- minor bug was fixed in var declaration printing
+
+## 30 July 2018 - 27 August 2018
 
 - minor changes applied
     - tabs are replaced with spaces

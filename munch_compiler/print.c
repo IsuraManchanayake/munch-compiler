@@ -210,12 +210,12 @@ void print_expr(Expr* expr) {
         printf(")");
         break;
     case EXPR_PRE_UNARY:
-        print_op(expr->unary_expr.op);
-        print_expr(expr->unary_expr.expr);
+        print_op(expr->pre_unary_expr.op);
+        print_expr(expr->pre_unary_expr.expr);
         break;
     case EXPR_POST_UNARY:
-        print_expr(expr->unary_expr.expr);
-        print_op(expr->unary_expr.op);
+        print_expr(expr->pre_unary_expr.expr);
+        print_op(expr->pre_unary_expr.op);
         break;
     case EXPR_CALL:
         printf("(call ");
@@ -329,7 +329,12 @@ void print_decl(Decl* decl) {
         print_expr(decl->const_decl.expr);
         break;
     case DECL_VAR:
-        print_typespec(decl->var_decl.type);
+        if (decl->var_decl.type) {
+            print_typespec(decl->var_decl.type);
+        }
+        else {
+            printf("var");
+        }
         printf(" %s", decl->name);
         if (decl->var_decl.expr) {
             printf(" = ");
