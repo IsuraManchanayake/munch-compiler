@@ -637,6 +637,7 @@ inline bool expect_assign_op() {
     else {
         show_error_token();
         fatal("Expected an assign operator. Found %s", tokentype_to_str(token.type));
+        return false;
     }
 }
 

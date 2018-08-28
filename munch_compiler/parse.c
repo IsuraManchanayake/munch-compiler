@@ -118,7 +118,7 @@ Expr* parse_expr_operand() {
         return expr_name(name);
     }
     else if (match_token('(')) {
-        if (is_token(':')) {
+        if (match_token(':')) {
             TypeSpec* type = parse_typespec();
             expect_token(')');
             return parse_expr_compound(type);

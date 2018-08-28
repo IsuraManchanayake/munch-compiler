@@ -1,8 +1,15 @@
 # Diary
 
+## 29 July 2018 1 AM
+
+- enum constants are resolved as constants
+- enum types are resolved as int typedefs
+- compund literal resolving with expected types is completed
+- minor bug was fixed in compound literal parsing
+
 ## 28 July 2018 3 AM
 
-- First working version of the resolve.c (YAY!! FINALLY!) is created in my own way
+- first working version of the resolve.c (YAY!! FINALLY!) is created in my own way
 - address operator was added as a pre unary operator
 - minor bug was fixed in var declaration printing
 

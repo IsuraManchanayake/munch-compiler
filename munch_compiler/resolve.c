@@ -214,8 +214,6 @@ Entity* entity_alloc(EntityType e_type) {
     return entity;
 }
 
-#pragma TODO("install decl for enum decls")
-
 Entity* install_decl(Decl* decl) {
     if (get_entity(decl->name)) {
         fatal("%s is already defined", decl->name);
@@ -247,6 +245,26 @@ Entity* install_decl(Decl* decl) {
         entity->state = ENTITY_STATE_RESOLVED;
         entity->type = type_incomplete(entity);
     }
+    else if (decl->type == DECL_ENUM) {
+        entity->decl = decl_typedef(decl->name, typespec_name(str_intern("int")));
+        for (size_t i = 0; i < decl->enum_decl.num_enum_items; i++) {
+            Entity* enum_entity = entity_alloc(ENTITY_ENUM_CONST);
+            EnumItem enum_item = decl->enum_decl.enum_items[i];
+            enum_entity->name = enum_item.name;
+            if (enum_item.expr) {
+                enum_entity->decl = decl_const(enum_item.name, enum_item.expr);
+            }
+            else if (i == 0) {
+                enum_entity->decl = decl_const(enum_item.name, expr_int(0));
+            }
+            else {
+                Expr* prev_enum_name = expr_name(decl->enum_decl.enum_items[i - 1].name);
+                enum_entity->decl = decl_const(enum_item.name, expr_binary('+', expr_int(1), prev_enum_name));
+            }
+            enum_entity->type = type_int;
+            buf_push(entities, enum_entity);
+        }
+    }
     buf_push(entities, entity);
     return entity;
 }
@@ -269,7 +287,7 @@ void install_built_in_types() {
 
 #undef _BUILT_IN_TYPE
 
-ResolvedExpr resolve_expr(Expr* expr);
+ResolvedExpr resolve_expr(Expr* expr, Type* expected_type);
 void resolve_entity(Entity* entity);
 
 ResolvedExpr resolve_name(const char* name) {
@@ -281,13 +299,12 @@ ResolvedExpr resolve_name(const char* name) {
     if (entity->e_type == ENTITY_VAR) {
         return (ResolvedExpr) { .type = entity->type, .is_lvalue = true, .is_const = false };
     }
-    else if (entity->e_type == ENTITY_CONST) {
+    else if (entity->e_type == ENTITY_CONST || entity->e_type == ENTITY_ENUM_CONST) {
         return (ResolvedExpr) { .value = entity->value, .type = entity->type, .is_lvalue = true, .is_const = true };
     }
-    else if (entity->e_type == ENTITY_ENUM_CONST) {
-        assert(0);
+    else {
+        fatal("A value expression is expected by %s", name);
     }
-    assert(0);
 }
 
 ResolvedExpr resolve_binary_expr(Expr* expr);
@@ -297,7 +314,7 @@ ResolvedExpr resolve_post_unary(Expr* expr);
 void complete_type(Type* type);
 Type* resolve_typespec(TypeSpec* typespec);
 
-ResolvedExpr resolve_expr(Expr* expr) {
+ResolvedExpr resolve_expr(Expr* expr, Type* expected_type) {
     switch (expr->type) {
     case EXPR_BINARY:
         return resolve_binary_expr(expr);
@@ -312,11 +329,11 @@ ResolvedExpr resolve_expr(Expr* expr) {
     case EXPR_NAME:
         return resolve_name(expr->name_expr.name);
     case EXPR_INDEX: {
-        ResolvedExpr base_expr = resolve_expr(expr->index_expr.expr);
+        ResolvedExpr base_expr = resolve_expr(expr->index_expr.expr, NULL);
         return (ResolvedExpr) { .type = base_expr.type->array.base, .is_lvalue = base_expr.is_lvalue, .is_const = base_expr.is_const };
     }
     case EXPR_FIELD: {
-        ResolvedExpr base_expr = resolve_expr(expr->field_expr.expr);
+        ResolvedExpr base_expr = resolve_expr(expr->field_expr.expr, NULL);
         for (size_t i = 0; i < base_expr.type->aggregate.num_fields; i++) {
             if (expr->field_expr.field == base_expr.type->aggregate.fields[i].name) {
                 Type* type = base_expr.type->aggregate.fields[i].type;
@@ -332,13 +349,61 @@ ResolvedExpr resolve_expr(Expr* expr) {
         return (ResolvedExpr) { .value = type->size, .type = type_int, .is_lvalue = false, .is_const = true };
     }
     case EXPR_SIZEOF_EXPR: {
-        ResolvedExpr base_expr = resolve_expr(expr->sizeof_expr.expr);
+        ResolvedExpr base_expr = resolve_expr(expr->sizeof_expr.expr, NULL);
         return (ResolvedExpr) { .value = base_expr.type->size, .type = type_int, .is_lvalue = false, .is_const = true };
     }
     case EXPR_TERNARY:
     case EXPR_CALL:
     case EXPR_STR:
-    case EXPR_COMPOUND:
+        assert(0);
+    case EXPR_COMPOUND: {
+        TypeSpec* compound_typespec = expr->compound_expr.type;
+        if (!expected_type && !compound_typespec) {
+            fatal("Implicit types for compound expresssions are not allowed");
+        }
+        Type* compound_type = expected_type;
+        if (expected_type && compound_typespec) {
+            if (resolve_typespec(compound_typespec) != expected_type) {
+                fatal("Explicit type of the compound expression mismatch with the expected type");
+            }
+        }
+        else if(compound_typespec) {
+            compound_type = resolve_typespec(compound_typespec);
+        }
+        complete_type(compound_type);
+        if (compound_type->type == TYPE_STRUCT || compound_type->type == TYPE_UNION) {
+            if (compound_type->aggregate.num_fields < expr->compound_expr.num_exprs) {
+                fatal("Number of fields in the compound expression exceeds the aggregate definition field count");
+            }
+            bool is_const = true;
+            for (size_t i = 0; i < expr->compound_expr.num_exprs; i++) {
+                ResolvedExpr r_expr = resolve_expr(expr->compound_expr.exprs[i], NULL);
+                is_const &= r_expr.is_const;
+                if (compound_type->aggregate.fields[i].type != r_expr.type) {
+                    fatal("Field type mismatch with the aggregate definition");
+                }
+            }
+            return (ResolvedExpr) { .type = compound_type, .is_lvalue = false, .is_const = is_const };
+        }
+        else if (compound_type->type == TYPE_ARRAY) {
+            if (compound_type->array.size < expr->compound_expr.num_exprs) {
+                fatal("Number of fields in the compound expression exceeds the array size");
+            }
+            bool is_const = true;
+            for (size_t i = 0; i < expr->compound_expr.num_exprs; i++) {
+                ResolvedExpr r_expr = resolve_expr(expr->compound_expr.exprs[i], NULL);
+                is_const &= r_expr.is_const;
+                if (compound_type->array.base != r_expr.type) {
+                    fatal("Field type mismatch with the array type");
+                }
+            }
+            return (ResolvedExpr) { .type = compound_type, .is_lvalue = false, .is_const = is_const };
+        }
+        else {
+            fatal("An array or struct or union type is expected in a compound expression");
+        }
+        break;
+    }
     case EXPR_CAST:
     default:
         assert(0);
@@ -349,8 +414,8 @@ ResolvedExpr resolve_expr(Expr* expr) {
 
 ResolvedExpr resolve_binary_expr(Expr* expr) {
     assert(expr->type == EXPR_BINARY);
-    ResolvedExpr left = resolve_expr(expr->binary_expr.left);
-    ResolvedExpr right = resolve_expr(expr->binary_expr.right);
+    ResolvedExpr left = resolve_expr(expr->binary_expr.left, NULL);
+    ResolvedExpr right = resolve_expr(expr->binary_expr.right, NULL);
     switch (expr->binary_expr.op)
     {
     case '+':
@@ -404,7 +469,7 @@ ResolvedExpr resolve_binary_expr(Expr* expr) {
 
 ResolvedExpr resolve_pre_unary(Expr* expr) {
     assert(expr->type == EXPR_PRE_UNARY);
-    ResolvedExpr base_expr = resolve_expr(expr->pre_unary_expr.expr);
+    ResolvedExpr base_expr = resolve_expr(expr->pre_unary_expr.expr, NULL);
     switch (expr->pre_unary_expr.op) {
     case TOKEN_INC:
         if (base_expr.is_const) {
@@ -444,7 +509,7 @@ ResolvedExpr resolve_pre_unary(Expr* expr) {
 }
 
 ResolvedExpr resolve_post_unary(Expr* expr) {
-    ResolvedExpr base_expr = resolve_expr(expr->post_unary_expr.expr);
+    ResolvedExpr base_expr = resolve_expr(expr->post_unary_expr.expr, NULL);
     switch (expr->post_unary_expr.op) {
     case TOKEN_INC:
         if (base_expr.is_const) {
@@ -487,9 +552,12 @@ Type* resolve_typespec(TypeSpec* typespec) {
         return type_func(typespec->func.num_params, params, ret_type);
     }
     case TYPESPEC_ARRAY: {
-        ResolvedExpr size_expr = resolve_expr(typespec->array.size);
+        ResolvedExpr size_expr = resolve_expr(typespec->array.size, NULL);
         if (!size_expr.is_const) {
             fatal("const is expected in an array size expression");
+        }
+        if (!is_between(size_expr.value, 0, SIZE_MAX)) {
+            fatal("invalid expr value for array size");
         }
         return type_array(resolve_typespec(typespec->array.base), size_expr.value);
     }
@@ -511,7 +579,7 @@ void complete_type(Type* type) {
             Type* aggregate_type = resolve_typespec(type->entity->decl->aggregate_decl.aggregate_items[i].type);
             complete_type(aggregate_type);
             if (type->entity->decl->aggregate_decl.aggregate_items[i].expr) {
-                ResolvedExpr aggregate_expr = resolve_expr(type->entity->decl->aggregate_decl.aggregate_items[i].expr);
+                ResolvedExpr aggregate_expr = resolve_expr(type->entity->decl->aggregate_decl.aggregate_items[i].expr, NULL);
                 if (aggregate_type != aggregate_expr.type) {
                     fatal("aggregate type and expression inferred type mismatch");
                 }
@@ -542,6 +610,7 @@ void resolve_entity(Entity* entity) {
             type = resolve_typespec(entity->decl->typedef_decl.type);
             entity->type = type;
             complete_type(type);
+            buf_push(ordered_entities, entity);
             break;
         case ENTITY_VAR:
             if (entity->decl->var_decl.type) {
@@ -549,7 +618,7 @@ void resolve_entity(Entity* entity) {
                 entity->type = type;
             }
             if (entity->decl->var_decl.expr) {
-                ResolvedExpr r_expr = resolve_expr(entity->decl->var_decl.expr);
+                ResolvedExpr r_expr = resolve_expr(entity->decl->var_decl.expr, type);
                 if (type && type != r_expr.type) {
                     fatal("declared type and the expression types mismatch in %s", entity->name);
                 }
@@ -562,8 +631,9 @@ void resolve_entity(Entity* entity) {
             complete_type(type);
             buf_push(ordered_entities, entity);
             break;
+        case ENTITY_ENUM_CONST:
         case ENTITY_CONST: {
-            ResolvedExpr r_expr = resolve_expr(entity->decl->const_decl.expr);
+            ResolvedExpr r_expr = resolve_expr(entity->decl->const_decl.expr, NULL);
             if (!r_expr.is_const) {
                 fatal("A const expr is expected in a const declaration");
             }
@@ -606,23 +676,29 @@ void complete_entities() {
 resolve_decl_test() {
     install_built_in_types();
     const char* src[] = {
+        "struct PP {x:int; y:int;}",
+        "var ppa = &a",
+        "var v = (:PP){1, Q}",
+        "enum A{P, Q=5+3*3, R, S}",
+        "union AA {x:int; y:int*;}",
+        "var z = AA {1, ppa}",
+        "var wer = (:int[3]){1, 3, 4}",
         "const a = b",
         "const b = 3",
-        "var c = &a",
-        "struct A { foo : int[3] = d; k: int = *c; }",
-        "var d: int[3]",
-        "const n = 1+sizeof(p)",
-        "var p: T*",
-        "var u = *p",
-        "struct T { a: int[n]; }",
-        "var r = &t.a",
-        "var t: T",
-        "typedef S = int[n+m]",
-        "const m = sizeof(t.a)",
-        "var i = n+m",
-        "var q = &i",
+        //"var c = &a",
+        //"struct V { foo : int[3] = d; k: int = *c; }",
+        //"var d: A[3]",
+        //"const n = 1+sizeof(p)",
+        //"var p: T*",
+        //"var u = *p",
+        //"struct T { a: int[n+S]; }",
+        //"var r = &t.a",
+        //"var t: T",
+        //"typedef S_ = int[n+m]",
+        //"const m = sizeof(t.a)",
+        //"var i = n+m",
+        //"var q = &i",
     };
-    //sym_builtin("int");
     for (int i = 0; i < sizeof(src) / sizeof(*src); i++) {
         init_stream(src[i]);
         Decl* decl = parse_decl();
