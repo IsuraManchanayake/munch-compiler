@@ -1,5 +1,16 @@
 # Diary
 
+## 30 July 2018 2 AM
+
+- resolve.c code were refactored into more readable code by segementing the code to seperate functions
+- a bug in func entity resolving was fixed
+- ternary, call expr resolving was completed
+- built-in keyword PI was introduced
+- built-in constants (true, false, PI) were added into the resolving process
+- inline structs were replaced by explicit types in the Type definition
+- minor bug was fixed in func typespec printing
+- all empty function declaration parameters ("()") were changed to void ("(void)")
+
 ## 29 July 2018 1 AM
 
 - enum constants are resolved as constants
