@@ -585,11 +585,11 @@ Stmnt* stmnt_assign(Expr* left, Expr* right, TokenType op) {
 	return stmnt;
 }
 
-Stmnt* stmnt_break() {
+Stmnt* stmnt_break(void) {
 	return stmnt_alloc(STMNT_BREAK);
 }
 
-Stmnt* stmnt_continue() {
+Stmnt* stmnt_continue(void) {
 	return stmnt_alloc(STMNT_CONTINUE);
 }
 

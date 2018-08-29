@@ -158,7 +158,7 @@ const char* str_intern(const char* str) {
     return str_intern_range(str, str + strlen(str));
 }
 
-void buf_test() {
+void buf_test(void) {
     int* buf = NULL;
     assert(buf_len(buf) == 0);
     assert(buf_cap(buf) == 0);
@@ -175,7 +175,7 @@ void buf_test() {
     printf("BufHdr test passed\n");
 }
 
-intern_str_test() {
+void intern_str_test(void) {
     char* a = "hi";
     char* b = "hi";
     assert(a == b);
@@ -184,7 +184,7 @@ intern_str_test() {
     printf("InternStr test passed\n");
 }
 
-void common_test() {
+void common_test(void) {
     printf("----- common.c -----\n");
     buf_test();
     intern_str_test();

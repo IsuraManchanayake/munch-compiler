@@ -1,6 +1,6 @@
 #define TEST(test_method) test_method; printf("\n") 
 
-void run_tests() {
+void run_tests(void) {
     init_keywords();
     //TEST(common_test());
     //TEST(lex_test());

@@ -41,7 +41,7 @@ void print_op(TokenType op) {
 int indent = 0;
 #define ___ "                                              "
 
-print_new_line() {
+void print_new_line(void) {
     printf("\n%.*s", 2 * indent, ___ ___ ___ ___);
 }
 
@@ -167,7 +167,7 @@ void print_typespec(TypeSpec* typespec) {
         printf(")(");
         for (size_t i = 0; i < typespec->func.num_params; i++) {
             print_typespec(typespec->func.params[i]);
-            printf(",");
+            if(i != typespec->func.num_params - 1) printf(",");
         }
         printf("))");
         break;
@@ -389,7 +389,7 @@ print_decl_line(Decl* decl) {
 #define CREATE_PRINT_TYPE(t, create_type) TypeSpec* (t) = (create_type); print_typespec_line(t)
 #define CREATE_PRINT_DECL(d, create_decl) Decl* (d) = (create_decl); print_decl_line(d)
 
-print_ast_test() {
+void print_ast_test(void) {
     printf("----- print.c -----\n");
 
     CREATE_PRINT_TYPE(t1, typespec_name("list"));

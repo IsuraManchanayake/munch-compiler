@@ -20,6 +20,7 @@ const char* kwrd_typedef;
 const char* kwrd_sizeof;
 const char* kwrd_true;
 const char* kwrd_false;
+const char* kwrd_PI;
 
 const char** keywords;
 const char* first_kwrd;
@@ -27,7 +28,7 @@ const char* last_kwrd;
 
 #define INIT_KEYWORD(k) kwrd_##k = str_intern(#k); buf_push(keywords, kwrd_##k)
 
-void init_keywords() {
+void init_keywords(void) {
     static bool keyword_inited = false;
     if (keyword_inited) {
         return;
@@ -54,6 +55,7 @@ void init_keywords() {
     INIT_KEYWORD(sizeof);
     INIT_KEYWORD(true);
     INIT_KEYWORD(false);
+    INIT_KEYWORD(PI);
     first_kwrd = kwrd_if;
     last_kwrd = kwrd_false;
     keyword_inited = true;
@@ -124,7 +126,7 @@ const char char_to_digit[256] = {
     ['d'] = 13, ['D'] = 13, ['e'] = 14, ['E'] = 14, ['f'] = 15, ['F'] = 15
 };
 
-void scan_int() {
+void scan_int(void) {
     uint64_t val = 0;
     uint64_t base = 10;
     if (*stream == '0') {
@@ -170,7 +172,7 @@ void scan_int() {
     token.intval = val;
 }
 
-void scan_float() {
+void scan_float(void) {
     const char* start = stream;
     while (isdigit(*stream)) stream++;
     stream++;
@@ -210,7 +212,7 @@ const char esc_to_char[256] = {
     ['\\'] = '\\'
 };
 
-void scan_char() {
+void scan_char(void) {
     stream++;
     char val;
     if (*stream == '\'') {
@@ -241,7 +243,7 @@ void scan_char() {
     token.intval = val;
 }
 
-void scan_str() {
+void scan_str(void) {
     stream++;
     char* str_buf = NULL;
     while (*stream && *stream != '"') {
@@ -316,7 +318,7 @@ void scan_str() {
         } \
         break;
 
-void next_token() {
+void next_token(void) {
     token.start = stream;
     switch (*stream) {
     case ' ': case '\n': case '\t': case '\r': case '\v': case '\b': case '\f': case '\a': {
@@ -520,7 +522,7 @@ const char* tokentype_to_str(TokenType type) {
 
 #define ERROR_DISPLAY_WIDTH 20
 
-void show_error_token() {
+void show_error_token(void) {
     size_t curr = token.start - src_start;
     size_t left = max(curr - ERROR_DISPLAY_WIDTH / 2, 0);
     size_t len = (left + ERROR_DISPLAY_WIDTH) % (strlen(src_start)) - left;
@@ -599,37 +601,37 @@ inline bool expect_keyword(const char* name) {
 
 #define is_token_between(l, r) is_between(token.type, l, r)
 
-inline bool is_literal() {
+inline bool is_literal(void) {
     return is_token_between(TOKEN_INT, TOKEN_STR) || (token.type == TOKEN_KEYWORD && (token.name == kwrd_true || token.name == kwrd_false));
 }
 
-inline bool is_cmp_op() {
+inline bool is_cmp_op(void) {
     return token.type == '<' || token.type == '>' || is_token_between(TOKEN_EQ, TOKEN_GTEQ);
 }
 
-inline bool is_shift_op() {
+inline bool is_shift_op(void) {
     return token.type == TOKEN_LSHIFT || token.type == TOKEN_RSHIFT;
 }
 
-inline bool is_add_op() {
+inline bool is_add_op(void) {
     return token.type == '+' || token.type == '-';
 }
 
-inline bool is_mul_op() {
+inline bool is_mul_op(void) {
     return token.type == '*' || token.type == '/' || token.type == '%';
 }
 
-inline bool is_unary_op() {
+inline bool is_unary_op(void) {
     return token.type == '-' || token.type == '+' || token.type == '~'
         || token.type == '&' || token.type == '*' || token.type == '!'
         || token.type == TOKEN_INC || token.type == TOKEN_DEC;
 }
 
-inline bool is_assign_op() {
+inline bool is_assign_op(void) {
     return token.type == '=' || is_token_between(TOKEN_COLON_ASSIGN, TOKEN_RSHIFT_ASSIGN);
 }
 
-inline bool expect_assign_op() {
+inline bool expect_assign_op(void) {
     if (is_assign_op()) {
         next_token();
         return true;
@@ -652,7 +654,7 @@ inline bool expect_assign_op() {
 #define assert_token_char(x) (assert(token.intval == (x) && token.mod == TOK_MOD_CHAR && match_token(TOKEN_INT)))
 #define assert_token_eof() (assert(is_token(0)))
 
-lex_test() {
+void lex_test(void) {
     printf("----- lex.c -----\n");
 
     init_keywords();

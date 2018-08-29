@@ -6,13 +6,13 @@ Stmnt* parse_stmnt_simple();
 
 BlockStmnt parse_blockstmnt();
 
-const char* parse_name() {
+const char* parse_name(void) {
     const char* name = token.name;
     expect_token(TOKEN_NAME);
     return name;
 }
 
-TypeSpec* parse_type_func() {
+TypeSpec* parse_type_func(void) {
     expect_token('(');
     TypeSpec** args = NULL;
     if (!is_token(')')) {
@@ -29,7 +29,7 @@ TypeSpec* parse_type_func() {
     return typespec_func(ret_type, buf_len(args), args);
 }
 
-TypeSpec* parse_type_base() {
+TypeSpec* parse_type_base(void) {
     if (is_token(TOKEN_NAME)) {
         const char* name = token.name;
         next_token();
@@ -44,9 +44,10 @@ TypeSpec* parse_type_base() {
         return type;
     }
     syntax_error("Expected a base type. Found %s", token_to_str(token));
+    return NULL;
 }
 
-TypeSpec* parse_typespec() {
+TypeSpec* parse_typespec(void) {
     TypeSpec* type = parse_type_base();
     while (true) {
         if (match_token('[')) {
@@ -64,7 +65,7 @@ TypeSpec* parse_typespec() {
     return type;
 }
 
-Expr* parse_expr_literal() {
+Expr* parse_expr_literal(void) {
     if (token.type == TOKEN_INT) {
         uint64_t intval = token.intval;
         next_token();
@@ -87,6 +88,7 @@ Expr* parse_expr_literal() {
         return expr_int(0);
     }
     syntax_error("Expected a literal. Found %s", token_to_str(token));
+    return NULL;
 }
 
 Expr* parse_expr_compound(TypeSpec* type) {
@@ -103,7 +105,7 @@ Expr* parse_expr_compound(TypeSpec* type) {
     return expr_compound(type, buf_len(exprs), exprs);
 }
 
-Expr* parse_expr_operand() {
+Expr* parse_expr_operand(void) {
     if (is_literal()) {
         return parse_expr_literal();
     }
@@ -130,9 +132,10 @@ Expr* parse_expr_operand() {
         }
     }
     syntax_error("Expected an operand expression. Found %s", token_to_str(token));
+    return NULL;
 }
 
-Expr* parse_expr_sizeof() {
+Expr* parse_expr_sizeof(void) {
     expect_token('(');
     Expr* expr = NULL;
     if (match_token(':')) {
@@ -145,7 +148,7 @@ Expr* parse_expr_sizeof() {
     return expr;
 }
 
-Expr* parse_expr_base() {
+Expr* parse_expr_base(void) {
     if (match_keyword(kwrd_sizeof)) {
         return parse_expr_sizeof();
     }
@@ -182,7 +185,7 @@ Expr* parse_expr_base() {
     return operand_expr;
 }
 
-Expr* parse_expr_unary() {
+Expr* parse_expr_unary(void) {
     if (is_unary_op()) {
         TokenType unary_op = token.type;
         next_token();
@@ -191,7 +194,7 @@ Expr* parse_expr_unary() {
     return parse_expr_base();
 }
 
-Expr* parse_expr_mul() {
+Expr* parse_expr_mul(void) {
     Expr* unary_expr = parse_expr_unary();
     while (is_mul_op()) {
         TokenType mul_op = token.type;
@@ -201,7 +204,7 @@ Expr* parse_expr_mul() {
     return unary_expr;
 }
 
-Expr* parse_expr_add() {
+Expr* parse_expr_add(void) {
     Expr* mul_expr = parse_expr_mul();
     while (is_add_op()) {
         TokenType add_op = token.type;
@@ -211,7 +214,7 @@ Expr* parse_expr_add() {
     return mul_expr;
 }
 
-Expr* parse_expr_shift() {
+Expr* parse_expr_shift(void) {
     Expr* add_expr = parse_expr_add();
     if (is_shift_op()) {
         TokenType shift_op = token.type;
@@ -221,7 +224,7 @@ Expr* parse_expr_shift() {
     return add_expr;
 }
 
-Expr* parse_expr_cmp() {
+Expr* parse_expr_cmp(void) {
     Expr* shift_expr = parse_expr_shift();
     if (is_cmp_op()) {
         TokenType cmp_op = token.type;
@@ -231,7 +234,7 @@ Expr* parse_expr_cmp() {
     return shift_expr;
 }
 
-Expr* parse_expr_bit_xor() {
+Expr* parse_expr_bit_xor(void) {
     Expr* cmp_expr = parse_expr_cmp();
     while (match_token('^')) {
         cmp_expr = expr_binary('^', cmp_expr, parse_expr_cmp());
@@ -239,7 +242,7 @@ Expr* parse_expr_bit_xor() {
     return cmp_expr;
 }
 
-Expr* parse_expr_bit_and() {
+Expr* parse_expr_bit_and(void) {
     Expr* bit_xor_expr = parse_expr_bit_xor();
     while (match_token('&')) {
         bit_xor_expr = expr_binary('&', bit_xor_expr, parse_expr_bit_xor());
@@ -247,7 +250,7 @@ Expr* parse_expr_bit_and() {
     return bit_xor_expr;
 }
 
-Expr* parse_expr_bit_or() {
+Expr* parse_expr_bit_or(void) {
     Expr* bit_and_expr = parse_expr_bit_and();
     while (match_token('|')) {
         bit_and_expr = expr_binary('|', bit_and_expr, parse_expr_bit_and());
@@ -255,7 +258,7 @@ Expr* parse_expr_bit_or() {
     return bit_and_expr;
 }
 
-Expr* parse_expr_and() {
+Expr* parse_expr_and(void) {
     Expr* bit_or_expr = parse_expr_bit_or();
     while (match_token(TOKEN_LOG_AND)) {
         bit_or_expr = expr_binary(TOKEN_LOG_AND, bit_or_expr, parse_expr_bit_or());
@@ -263,7 +266,7 @@ Expr* parse_expr_and() {
     return bit_or_expr;
 }
 
-Expr* parse_expr_or() {
+Expr* parse_expr_or(void) {
     Expr* and_expr = parse_expr_and();
     while (match_token(TOKEN_LOG_OR)) {
         and_expr = expr_binary(TOKEN_LOG_OR, and_expr, parse_expr_and());
@@ -271,7 +274,7 @@ Expr* parse_expr_or() {
     return and_expr;
 }
 
-Expr* parse_expr_ternary() {
+Expr* parse_expr_ternary(void) {
     Expr* or_expr = parse_expr_or();
     if (match_token('?')) {
         Expr* left = parse_expr_ternary();
@@ -282,11 +285,11 @@ Expr* parse_expr_ternary() {
     return or_expr;
 }
 
-Expr* parse_expr() {
+Expr* parse_expr(void) {
     return parse_expr_ternary();
 }
 
-Stmnt* parse_stmnt_ifelseif() {
+Stmnt* parse_stmnt_ifelseif(void) {
     expect_token('(');
     Expr* cond = parse_expr();
     expect_token(')');
@@ -314,14 +317,14 @@ Stmnt* parse_stmnt_ifelseif() {
     return stmnt_ifelseif(cond, then_block, buf_len(else_ifs), else_ifs, else_block);
 }
 
-CaseBlock parse_case_block() {
+CaseBlock parse_case_block(void) {
     expect_keyword(kwrd_case);
     Expr* case_expr = parse_expr();
     expect_token(':');
     return (CaseBlock) { case_expr, parse_blockstmnt() };
 }
 
-Stmnt* parse_stmnt_switch() {
+Stmnt* parse_stmnt_switch(void) {
     expect_token('(');
     Expr* switch_expr = parse_expr();
     expect_token(')');
@@ -343,14 +346,14 @@ Stmnt* parse_stmnt_switch() {
     return stmnt_switch(switch_expr, buf_len(case_blocks), case_blocks, default_block);
 }
 
-Stmnt* parse_stmnt_while() {
+Stmnt* parse_stmnt_while(void) {
     expect_token('(');
     Expr* cond = parse_expr();
     expect_token(')');
     return stmnt_while(STMNT_WHILE, cond, parse_blockstmnt());
 }
 
-Stmnt* parse_stmnt_do() {
+Stmnt* parse_stmnt_do(void) {
     BlockStmnt block = parse_blockstmnt();
     expect_keyword(kwrd_while);
     expect_token('(');
@@ -359,7 +362,7 @@ Stmnt* parse_stmnt_do() {
     return stmnt_while(STMNT_DO_WHILE, cond, block);
 }
 
-Stmnt* parse_for_init_update() {
+Stmnt* parse_for_init_update(void) {
     Stmnt* stmnt = parse_stmnt_simple();
     if (stmnt->type != STMNT_ASSIGN && stmnt->type != STMNT_EXPR) {
         basic_syntax_error("Expected an assign statement or expression. Found <STMNT %d>", stmnt->type);
@@ -367,7 +370,7 @@ Stmnt* parse_for_init_update() {
     return stmnt;
 }
 
-Stmnt* parse_stmnt_for() {
+Stmnt* parse_stmnt_for(void) {
     expect_token('(');
     Stmnt** init = NULL;
     if (!is_token(';')) {
@@ -393,14 +396,14 @@ Stmnt* parse_stmnt_for() {
     return stmnt_for(buf_len(init), init, cond, buf_len(update), update, parse_blockstmnt());
 }
 
-Stmnt* parse_stmnt_assign() {
+Stmnt* parse_stmnt_assign(void) {
     Expr* left = parse_expr();
     TokenType op = token.type;
     expect_assign_op();
     return stmnt_assign(left, parse_expr(), op);
 }
 
-Stmnt* parse_stmnt_return() {
+Stmnt* parse_stmnt_return(void) {
     Expr* expr = NULL;
     if (!is_token(';')) {
         expr = parse_expr();
@@ -409,7 +412,7 @@ Stmnt* parse_stmnt_return() {
     return stmnt_return(expr);
 }
 
-BlockStmnt parse_blockstmnt() {
+BlockStmnt parse_blockstmnt(void) {
     expect_token('{');
     Stmnt** stmnts = NULL;
     while (!is_token('}')) {
@@ -419,7 +422,7 @@ BlockStmnt parse_blockstmnt() {
     return (BlockStmnt) { buf_len(stmnts), stmnts };
 }
 
-Stmnt* parse_stmnt_block() {
+Stmnt* parse_stmnt_block(void) {
     expect_token('{');
     Stmnt** stmnts = NULL;
     while (!is_token('}')) {
@@ -430,11 +433,11 @@ Stmnt* parse_stmnt_block() {
     return stmnt_block(buf_len(stmnts), stmnts);
 }
 
-Stmnt* parse_stmnt_expr() {
+Stmnt* parse_stmnt_expr(void) {
     return stmnt_expr(parse_expr());
 }
 
-Stmnt* parse_stmnt_simple() {
+Stmnt* parse_stmnt_simple(void) {
     if (is_token(';')) {
         return NULL;
     }
@@ -454,7 +457,7 @@ Stmnt* parse_stmnt_simple() {
     }
 }
 
-Stmnt* parse_stmnt() {
+Stmnt* parse_stmnt(void) {
     if (match_keyword(kwrd_if)) {
         return parse_stmnt_ifelseif();
     }
@@ -491,7 +494,7 @@ Stmnt* parse_stmnt() {
     }
 }
 
-EnumItem parse_enum_item() {
+EnumItem parse_enum_item(void) {
     const char* name = parse_name();
     if (match_token('=')) {
         return (EnumItem) { name, parse_expr() };
@@ -499,7 +502,7 @@ EnumItem parse_enum_item() {
     return (EnumItem) { name, NULL };
 }
 
-Decl* parse_decl_enum() {
+Decl* parse_decl_enum(void) {
     const char* name = parse_name();
     expect_token('{');
     EnumItem* enum_items = NULL;
@@ -512,7 +515,7 @@ Decl* parse_decl_enum() {
     return decl_enum(name, buf_len(enum_items), enum_items);
 }
 
-AggregateItem parse_aggregate_item() {
+AggregateItem parse_aggregate_item(void) {
     const char* name = parse_name();
     if (match_token(':')) {
         TypeSpec* type = parse_typespec();
@@ -540,21 +543,21 @@ Decl* parse_aggregate(DeclType type) {
     return decl_aggregate(type, name, buf_len(aggregate_items), aggregate_items);
 }
 
-Decl* parse_decl_struct() {
+Decl* parse_decl_struct(void) {
     return parse_aggregate(DECL_STRUCT);
 }
 
-Decl* parse_decl_union() {
+Decl* parse_decl_union(void) {
     return parse_aggregate(DECL_UNION);
 }
 
-Decl* parse_decl_const() {
+Decl* parse_decl_const(void) {
     const char* name = parse_name();
     expect_token('=');
     return decl_const(name, parse_expr());
 }
 
-Decl* parse_decl_var() {
+Decl* parse_decl_var(void) {
     const char* name = parse_name();
     if (match_token(':')) {
         TypeSpec* type = parse_typespec();
@@ -568,22 +571,24 @@ Decl* parse_decl_var() {
     }
     else {
         syntax_error("Expected = or : in var declaration. Found %s", tokentype_to_str(token.type));
+        return NULL;
     }
 }
 
-Decl* parse_decl_typedef() {
+Decl* parse_decl_typedef(void) {
     const char* name = parse_name();
     expect_token('=');
     return decl_typedef(name, parse_typespec());
 }
 
-FuncParam parse_func_param() {
+FuncParam parse_func_param(void) {
     const char* name = parse_name();
+    expect_token(':');
     TypeSpec* type = parse_typespec();
     return (FuncParam) { name, type };
 }
 
-Decl* parse_decl_func() {
+Decl* parse_decl_func(void) {
     const char* name = parse_name();
     expect_token('(');
     FuncParam* func_params = NULL;
@@ -601,7 +606,7 @@ Decl* parse_decl_func() {
     return decl_func(name, buf_len(func_params), func_params, ret_type, parse_blockstmnt());
 }
 
-Decl* parse_decl() {
+Decl* parse_decl(void) {
     if (match_keyword(kwrd_enum)) {
         return parse_decl_enum();
     }
@@ -624,12 +629,13 @@ Decl* parse_decl() {
         return parse_decl_func();
     }
     syntax_error("Expected a declaration keyword. Found %s", token_to_str(token));
+    return NULL;
 }
 
 #define PARSE_SRC_DECL(src) init_stream(src); print_decl(parse_decl()); printf("\n-----------------------------\n")
 #define PARSE_SRC_STMNT(src) init_stream(src); print_stmnt(parse_stmnt()); printf("\n-----------------------------\n")
 
-parse_test() {
+void parse_test(void) {
     printf("----- parse.c -----\n");
     
     init_keywords();
