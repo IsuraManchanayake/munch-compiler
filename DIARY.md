@@ -1,5 +1,12 @@
 # Diary
 
+## 31 July 2018 2 AM
+
+- cast expr parsing, resolving is added
+- void, char in-built types were added
+- temporary fix for str and float literals were added
+- minor bug was fixed in add expr parsing
+
 ## 30 July 2018 2 AM
 
 - resolve.c code were refactored into more readable code by segementing the code to seperate functions

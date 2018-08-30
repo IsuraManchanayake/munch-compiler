@@ -18,6 +18,7 @@ const char* kwrd_var;
 const char* kwrd_func;
 const char* kwrd_typedef;
 const char* kwrd_sizeof;
+const char* kwrd_cast;
 const char* kwrd_true;
 const char* kwrd_false;
 const char* kwrd_PI;
@@ -26,42 +27,43 @@ const char** keywords;
 const char* first_kwrd;
 const char* last_kwrd;
 
-#define INIT_KEYWORD(k) kwrd_##k = str_intern(#k); buf_push(keywords, kwrd_##k)
+#define _INIT_KEYWORD(k) kwrd_##k = str_intern(#k); buf_push(keywords, kwrd_##k)
 
 void init_keywords(void) {
     static bool keyword_inited = false;
     if (keyword_inited) {
         return;
     }
-    INIT_KEYWORD(if);
-    INIT_KEYWORD(else);
-    INIT_KEYWORD(for);
-    INIT_KEYWORD(while);
-    INIT_KEYWORD(do);
-    INIT_KEYWORD(switch);
-    INIT_KEYWORD(case);
-    INIT_KEYWORD(default);
-    INIT_KEYWORD(break);
-    INIT_KEYWORD(continue);
-    INIT_KEYWORD(return);
-    INIT_KEYWORD(struct);
-    INIT_KEYWORD(union);
-    INIT_KEYWORD(enum);
-    INIT_KEYWORD(const);
-    INIT_KEYWORD(sizeof);
-    INIT_KEYWORD(var);
-    INIT_KEYWORD(func);
-    INIT_KEYWORD(typedef);
-    INIT_KEYWORD(sizeof);
-    INIT_KEYWORD(true);
-    INIT_KEYWORD(false);
-    INIT_KEYWORD(PI);
+    _INIT_KEYWORD(if);
+    _INIT_KEYWORD(else);
+    _INIT_KEYWORD(for);
+    _INIT_KEYWORD(while);
+    _INIT_KEYWORD(do);
+    _INIT_KEYWORD(switch);
+    _INIT_KEYWORD(case);
+    _INIT_KEYWORD(default);
+    _INIT_KEYWORD(break);
+    _INIT_KEYWORD(continue);
+    _INIT_KEYWORD(return);
+    _INIT_KEYWORD(struct);
+    _INIT_KEYWORD(union);
+    _INIT_KEYWORD(enum);
+    _INIT_KEYWORD(const);
+    _INIT_KEYWORD(sizeof);
+    _INIT_KEYWORD(var);
+    _INIT_KEYWORD(func);
+    _INIT_KEYWORD(typedef);
+    _INIT_KEYWORD(sizeof);
+    _INIT_KEYWORD(cast);
+    _INIT_KEYWORD(true);
+    _INIT_KEYWORD(false);
+    _INIT_KEYWORD(PI);
     first_kwrd = kwrd_if;
     last_kwrd = kwrd_false;
     keyword_inited = true;
 }
 
-#undef INIT_KEYWORD
+#undef _INIT_KEYWORD
 
 typedef enum TokenType {
     TOKEN_EOF = 0,

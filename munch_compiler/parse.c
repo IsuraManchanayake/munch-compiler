@@ -105,6 +105,19 @@ Expr* parse_expr_compound(TypeSpec* type) {
     return expr_compound(type, buf_len(exprs), exprs);
 }
 
+Expr* parse_expr_sizeof(void) {
+    expect_token('(');
+    Expr* expr = NULL;
+    if (match_token(':')) {
+        expr = expr_sizeof_type(parse_typespec());
+    }
+    else {
+        expr = expr_sizeof_expr(parse_expr());
+    }
+    expect_token(')');
+    return expr;
+}
+
 Expr* parse_expr_operand(void) {
     if (is_literal()) {
         return parse_expr_literal();
@@ -128,30 +141,23 @@ Expr* parse_expr_operand(void) {
         else {
             Expr* expr = parse_expr();
             expect_token(')');
-            return parse_expr();
+            return expr;
         }
+    }
+    else if (match_keyword(kwrd_sizeof)) {
+        return parse_expr_sizeof();
+    }
+    else if (match_keyword(kwrd_cast)) {
+        expect_token('(');
+        TypeSpec* type = parse_typespec();
+        expect_token(')');
+        return expr_cast(type, parse_expr());
     }
     syntax_error("Expected an operand expression. Found %s", token_to_str(token));
     return NULL;
 }
 
-Expr* parse_expr_sizeof(void) {
-    expect_token('(');
-    Expr* expr = NULL;
-    if (match_token(':')) {
-        expr = expr_sizeof_type(parse_typespec());
-    }
-    else {
-        expr = expr_sizeof_expr(parse_expr());
-    }
-    expect_token(')');
-    return expr;
-}
-
 Expr* parse_expr_base(void) {
-    if (match_keyword(kwrd_sizeof)) {
-        return parse_expr_sizeof();
-    }
     Expr* operand_expr = parse_expr_operand();
     while (true) {
         if (match_token('(')) {
@@ -209,7 +215,7 @@ Expr* parse_expr_add(void) {
     while (is_add_op()) {
         TokenType add_op = token.type;
         next_token();
-        mul_expr = expr_binary(add_op, mul_expr, parse_expr_cmp());
+        mul_expr = expr_binary(add_op, mul_expr, parse_expr_mul());
     }
     return mul_expr;
 }

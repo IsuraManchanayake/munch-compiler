@@ -5,6 +5,8 @@ typedef enum TypeType {
     TYPE_NONE,
     TYPE_INCOMPLETE,
     TYPE_COMPLETING,
+    TYPE_VOID,
+    TYPE_CHAR,
     TYPE_INT,
     TYPE_FLOAT,
     TYPE_PTR,
@@ -58,15 +60,16 @@ Type* type_alloc(TypeType type_type) {
     return type;
 }
 
+#define VOID_SIZE 0
+#define CHAR_SIZE 1
 #define INT_SIZE 4
 #define FLOAT_SIZE 4
-#define PTR_SIZE 4
+#define PTR_SIZE 8
 
-Type _type_int_val = { .type = TYPE_INT, .size = INT_SIZE };
-Type _type_float_val = { .type = TYPE_FLOAT, .size = FLOAT_SIZE };
-
-Type* type_float = &_type_float_val;
-Type* type_int = &_type_int_val;
+Type* type_void = &(Type) { .type = TYPE_VOID, .size = VOID_SIZE };
+Type* type_char = &(Type) { .type = TYPE_CHAR, .size = CHAR_SIZE };
+Type* type_int = &(Type){ .type = TYPE_INT, .size = INT_SIZE };
+Type* type_float = &(Type) { .type = TYPE_FLOAT, .size = FLOAT_SIZE };
 
 typedef struct CachedPtrType {
     Type* base;
@@ -97,7 +100,7 @@ Type* type_ptr(Type* base) {
     Type* type = type_alloc(TYPE_PTR);
     type->ptr.base = base;
     type->size = PTR_SIZE;
-    buf_push(cached_ptr_types, ((CachedPtrType) { .base = base, .ptr = type}));
+    buf_push(cached_ptr_types, ((CachedPtrType) {.base = base, .ptr = type}));
     return type;
 }
 
@@ -113,7 +116,7 @@ Type* type_array(Type* base, size_t size) {
     type->array.base = base;
     type->array.size = size;
     type->size = size * base->size;
-    buf_push(cached_array_types, ((CachedArrayType){ .base = base, .size = size, .array = type }));
+    buf_push(cached_array_types, ((CachedArrayType){.base = base, .size = size, .array = type }));
     return type;
 }
 
@@ -289,6 +292,8 @@ Entity* built_in_type(Type* type, const char* name) {
 #define _BUILT_IN_TYPE(t) buf_push(entities, built_in_type(type_ ## t, #t));
 
 void install_built_in_types(void) {
+    _BUILT_IN_TYPE(void);
+    _BUILT_IN_TYPE(char);
     _BUILT_IN_TYPE(int);
     _BUILT_IN_TYPE(float);
 }
@@ -371,15 +376,15 @@ ResolvedExpr resolve_expr(Expr* expr, Type* expected_type) {
         return resolve_float_expr(expr);
     case EXPR_NAME:
         return resolve_name_expr(expr);
-    case EXPR_INDEX: 
+    case EXPR_INDEX:
         return resolve_index_expr(expr);
-    case EXPR_FIELD: 
+    case EXPR_FIELD:
         return resolve_field_expr(expr);
     case EXPR_SIZEOF_TYPE:
         return resolve_sizeof_type_expr(expr);
-    case EXPR_TERNARY: 
+    case EXPR_TERNARY:
         return resolve_ternary_expr(expr, expected_type);
-    case EXPR_CALL: 
+    case EXPR_CALL:
         return resolve_call_expr(expr, expected_type);
     case EXPR_STR:
         return resolve_str_expr(expr);
@@ -393,59 +398,76 @@ ResolvedExpr resolve_expr(Expr* expr, Type* expected_type) {
     return (ResolvedExpr) { 0 };
 }
 
+int64_t eval_const_binary_expr(TokenType op, int64_t left, int64_t right) {
+    switch (op)
+    {
+    case '+':
+        return left + right;
+    case '-':
+        return left - right;
+    case '*':
+        return left * right;
+    case '/':
+        if (right == 0) {
+            fatal("Zero division error in the const div expr");
+        }
+        return left / right;
+    case '%':
+        if (right == 0) {
+            fatal("Zero division error in the const mod expr");
+        }
+        return left % right;
+    case '<':
+        return left < right;
+    case '>':
+        return left > right;
+    case '&':
+        return left & right;
+    case '|':
+        return left | right;
+    case '^':
+        return left ^ right;
+    case TOKEN_LOG_AND:
+        return left && right;
+    case TOKEN_LOG_OR:
+        return left || right;
+    case TOKEN_LSHIFT:
+        if (right < 0) {
+            fatal("Undefined behavior in the const rshift expr");
+        }
+        return left << right;
+    case TOKEN_RSHIFT:
+        if (right < 0) {
+            fatal("Undefined behavior in the const rshift expr");
+        }
+        return left >> right;
+    case TOKEN_EQ:
+        return left == right;
+    case TOKEN_NEQ:
+        return left != right;
+    case TOKEN_LTEQ:
+        return left <= right;
+    case TOKEN_GTEQ:
+        return left >= right;
+    default:
+        assert(0);
+        return 0;
+    }
+}
+
 ResolvedExpr resolve_binary_expr(Expr* expr) {
     assert(expr->type == EXPR_BINARY);
     ResolvedExpr left = resolve_expr(expr->binary_expr.left, NULL);
     ResolvedExpr right = resolve_expr(expr->binary_expr.right, NULL);
-    switch (expr->binary_expr.op)
-    {
-    case '+':
-        if (left.type != right.type) {
-            fatal("type mismatch in the binary expression");
-        }
-        assert(left.type == type_int);
-        if (left.is_const && right.is_const) {
-            return (ResolvedExpr) { .value = left.value + right.value, .type = left.type, .is_lvalue = false, .is_const = true };
-        }
-        else {
-            return (ResolvedExpr) { .type = left.type, .is_lvalue = false, .is_const = false };
-        }
-    case '-':
-        if (left.type != right.type) {
-            fatal("type mismatch in the binary expression");
-        }
-        assert(left.type == type_int);
-        if (left.is_const && right.is_const) {
-            return (ResolvedExpr) { .value = left.value - right.value, .type = left.type, .is_lvalue = false, .is_const = true };
-        }
-        else {
-            return (ResolvedExpr) { .type = left.type, .is_lvalue = false, .is_const = false };
-        }
-    case '*':
-        if (left.type != right.type) {
-            fatal("type mismatch in the binary expression");
-        }
-        assert(left.type == type_int);
-        if (left.is_const && right.is_const) {
-            return (ResolvedExpr) { .value = left.value * right.value, .type = left.type, .is_lvalue = false, .is_const = true };
-        }
-        else {
-            return (ResolvedExpr) { .type = left.type, .is_lvalue = false, .is_const = false };
-        }
-    case '/':
-        if (left.type != right.type) {
-            fatal("type mismatch in the binary expression");
-        }
-        assert(left.type == type_int);
-        if (left.is_const && right.is_const) {
-            return (ResolvedExpr) { .value = left.value / right.value, .type = left.type, .is_lvalue = false, .is_const = true };
-        }
-        else {
-            return (ResolvedExpr) { .type = left.type, .is_lvalue = false, .is_const = false };
-        }
-    default:
-        assert(0);
-        return (ResolvedExpr) {0};
+    if (left.type != right.type) {
+        fatal("type mismatch in the binary expression");
+    }
+    assert(left.type == type_int);
+    if (left.is_const && right.is_const) {        
+        return (ResolvedExpr) { .value = eval_const_binary_expr(expr->binary_expr.op, left.value, right.value), .type = type_int, .is_lvalue = false, .is_const = true };
+    }
+    else {
+        return (ResolvedExpr) { .type = left.type, .is_lvalue = false, .is_const = false };
     }
 }
 
@@ -470,7 +492,7 @@ ResolvedExpr resolve_pre_unary_expr(Expr* expr) {
         }
         return (ResolvedExpr) { .value = base_expr.value - 1, .type = base_expr.type, .is_lvalue = true, .is_const = false };
     case '+':
-        return (ResolvedExpr) { .value = base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
+        return (ResolvedExpr) { .value = +base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
     case '-':
         return (ResolvedExpr) { .value = -base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
     case '*':
@@ -486,7 +508,7 @@ ResolvedExpr resolve_pre_unary_expr(Expr* expr) {
     case '!':
         return (ResolvedExpr) { .value = !base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
     case '~':
-        return (ResolvedExpr) { .value = base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
+        return (ResolvedExpr) { .value = ~base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
     default:
         assert(0);
     }
@@ -559,6 +581,7 @@ ResolvedExpr resolve_field_expr(Expr* expr) {
         }
     }
     fatal("%s is not a field of %s", expr->field_expr.field, base_expr.type->entity->name);
+    return (ResolvedExpr) { 0 };
 }
 
 ResolvedExpr resolve_sizeof_expr_expr(Expr* expr) {
@@ -588,7 +611,7 @@ ResolvedExpr resolve_ternary_expr(Expr* expr, Type* expected_type) {
     if (expected_type && right_expr.type != expected_type) {
         fatal("The right expr type mismatch with the expected type");
     }
-    if (cond_expr.is_const) {
+    if (cond_expr.is_const && left_expr.is_const && right_expr.is_const) {
         return cond_expr.value ? left_expr : right_expr;
     }
     else {
@@ -598,7 +621,7 @@ ResolvedExpr resolve_ternary_expr(Expr* expr, Type* expected_type) {
 
 ResolvedExpr resolve_str_expr(Expr* expr) {
     assert(expr->type == EXPR_STR);
-    assert(0);
+    return (ResolvedExpr) { .type = type_ptr(type_char), .is_lvalue = false, .is_const = true };
 }
 
 ResolvedExpr resolve_call_expr(Expr* expr, Type* expected_type) {
@@ -671,7 +694,22 @@ ResolvedExpr resolve_compound_expr(Expr* expr, Type* expected_type) {
 
 ResolvedExpr resolve_cast_expr(Expr* expr) {
     assert(expr->type == EXPR_CAST);
-    assert(0);
+    Type* cast_type = resolve_typespec(expr->cast_expr.cast_type);
+    ResolvedExpr cast_expr = resolve_expr(expr->cast_expr.cast_expr, NULL);
+    if (cast_type->type == TYPE_PTR) {
+        if (cast_expr.type->type != TYPE_PTR && cast_expr.type->type != TYPE_INT) {
+            fatal("Unsupported cast to a pointer");
+        }
+    }
+    else if (cast_type->type == TYPE_INT) {
+        if (cast_expr.type->type == TYPE_PTR && cast_expr.type->type != TYPE_INT && cast_expr.type->type != TYPE_FLOAT && cast_expr.type->type == TYPE_CHAR) {
+            fatal("Unsupported cast to an int");
+        }
+    }
+    else {
+        fatal("Unsupported cast");
+    }
+    return (ResolvedExpr) { .type = cast_type, .is_lvalue = false, .is_const = false };
 }
 
 Type* resolve_typespec_name(TypeSpec* typespec);
@@ -681,11 +719,11 @@ Type* resolve_typespec_ptr(TypeSpec* typespec);
 
 Type* resolve_typespec(TypeSpec* typespec) {
     switch (typespec->type) {
-    case TYPESPEC_NAME: 
+    case TYPESPEC_NAME:
         return resolve_typespec_name(typespec);
     case TYPESPEC_FUNC:
         return resolve_typespec_func(typespec);
-    case TYPESPEC_ARRAY: 
+    case TYPESPEC_ARRAY:
         return resolve_typespec_array(typespec);
     case TYPESPEC_PTR:
         return resolve_typespec_ptr(typespec);
@@ -752,7 +790,7 @@ void complete_type(Type* type) {
                     fatal("aggregate type and expression inferred type mismatch");
                 }
             }
-            buf_push(aggregate_fields, ((TypeField) { .type = aggregate_type, .name = aggregate_decl.aggregate_items[i].name }));
+            buf_push(aggregate_fields, ((TypeField) {.type = aggregate_type, .name = aggregate_decl.aggregate_items[i].name }));
         }
         if (decl->type == DECL_STRUCT) {
             type_struct(type, aggregate_decl.num_aggregate_items, aggregate_fields);
@@ -776,7 +814,8 @@ void resolve_entity_func(Entity* entity);
 void resolve_entity(Entity* entity) {
     if (entity->state == ENTITY_STATE_RESOLVING) {
         fatal("Cyclic dependancy for %s", entity->name);
-    } else if (entity->state == ENTITY_STATE_UNRESOVLED) {
+    }
+    else if (entity->state == ENTITY_STATE_UNRESOVLED) {
         entity->state = ENTITY_STATE_RESOLVING;
         switch (entity->e_type) {
         case ENTITY_TYPE:
@@ -788,10 +827,10 @@ void resolve_entity(Entity* entity) {
         case ENTITY_ENUM_CONST:
             resolve_entity_enum_const(entity);
             break;
-        case ENTITY_CONST: 
+        case ENTITY_CONST:
             resolve_entity_const(entity);
             break;
-        case ENTITY_FUNC: 
+        case ENTITY_FUNC:
             resolve_entity_func(entity);
             break;
         default:
@@ -877,20 +916,29 @@ void resolve_decl_test(void) {
     install_built_in_consts();
     const char* src[] = {
         "struct PP {x:int; y:int;}",
-        "var ppa = &a",
-        "var v = (:PP){1, Q}",
-        "enum A{P, Q=5+3*3, R, S}",
-        "union AA {x:int; y:int*;}",
-        "var z = AA {1, ppa}",
-        "var wer = (:int[3]){1, 3, 4}",
-        "const a = b",
-        "const b = 3",
-        "var _p = PP{1, 2}",
-        "var _q = QQ{1, 3}",
-        "var pp: PP = f(_p, _q)",
-        "func f(a: PP, b: QQ): PP { return PP{a.x + b.x + true, a.y + b.y + false}; }",
-        "var g: func (PP, QQ):PP = f",
-        "struct QQ {x: int; y: int;}",
+        "const a = (3 + 3 * 3 / 3) << 3",
+        "const b = 32 % (~32 + 1 == -32)",
+        "var c = cast(void*) &a",
+        "var d = cast(int*) c",
+        "var e = *d",
+        //"var ppa = &a",
+        //"var v = (:PP){1, Q}",
+        //"enum A{P, Q=5+3*3, R, S}",
+        //"union AA {x:int; y:int*;}",
+        //"var z = AA {1, ppa}",
+        //"var wer = (:int[3]){1, 3, 4}",
+        //"const a = b",
+        //"const b = 3",
+        //"var _p = PP{1, 2}",
+        //"var _q = QQ{1, 3}",
+        //"var pp: PP = f(_p, _q)",
+        //"func f(a: PP, b: QQ): PP { return PP{a.x + b.x + true, a.y + b.y + false}; }",
+        //"var g: func (PP, QQ):PP = f",
+        //"struct QQ {x: int; y: int;}",
+        //"var aa = wer[1]",
+        //"var paa = &aa",
+        //"var gd = paa[2]",
+        /**/
         //"var c = &a",
         //"struct V { foo : int[3] = d; k: int = *c; }",
         //"var d: A[3]",
