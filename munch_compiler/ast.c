@@ -192,7 +192,10 @@ Decl* decl_enum(const char* name, size_t num_enum_items, EnumItem* enum_items) {
 Decl* decl_aggregate(DeclType type, const char* name, size_t num_aggregate_items, AggregateItem* aggregate_items) {
 	assert(type == DECL_UNION || type == DECL_STRUCT);
 	Decl* decl = decl_alloc(type, name);
-	decl->aggregate_decl = (AggregateDecl) { .num_aggregate_items = num_aggregate_items, .aggregate_items = _ast_dup(aggregate_items) };
+	decl->aggregate_decl = (AggregateDecl) { 
+        .num_aggregate_items = num_aggregate_items, 
+        .aggregate_items = _ast_dup(aggregate_items) 
+    };
 	return decl;
 }
 
@@ -216,7 +219,12 @@ Decl* decl_typedef(const char* name, TypeSpec* type) {
 
 Decl* decl_func(const char* name, size_t num_params, FuncParam* params, TypeSpec* ret_type, BlockStmnt block) {
 	Decl* decl = decl_alloc(DECL_FUNC, name);
-	decl->func_decl = (FuncDecl) { .num_params = num_params, .params = _ast_dup(params), .ret_type = ret_type, .block = block };
+	decl->func_decl = (FuncDecl) { 
+        .num_params = num_params, 
+        .params = _ast_dup(params), 
+        .ret_type = ret_type, 
+        .block = block 
+    };
 	return decl;
 }
 
@@ -282,10 +290,25 @@ typedef struct NameExpr {
 	const char* name;
 } NameExpr;
 
+typedef enum CompoundType {
+    COMPOUND_DEFAULT,
+    COMPOUND_INDEX,
+    COMPOUND_NAME
+} CompoundType;
+
+typedef struct CompoundItem {
+    CompoundType type;
+    union {
+        const char* name;
+        Expr* index;
+    };
+    Expr* value;
+} CompoundItem;
+
 typedef struct CompoundExpr {
 	TypeSpec* type;
-	size_t num_exprs;
-	Expr** exprs;
+	size_t num_compound_items;
+    CompoundItem* compound_items;
 } CompoundExpr;
 
 typedef struct CastExpr {
@@ -414,9 +437,25 @@ Expr* expr_field(Expr* call_expr, const char* field) {
     return expr;
 }
 
-Expr* expr_compound(TypeSpec* type, size_t num_exprs, Expr** exprs) {
+CompoundItem compound_default(Expr* value) {
+    return (CompoundItem) { .type = COMPOUND_DEFAULT, .value = value };
+}
+
+CompoundItem compound_index(Expr* index, Expr* value) {
+    return (CompoundItem) { .type = COMPOUND_INDEX, .index = index, .value = value };
+}
+
+CompoundItem compound_name(const char* name, Expr* value) {
+    return (CompoundItem) { .type = COMPOUND_NAME, .name = name, .value = value };
+}
+
+Expr* expr_compound(TypeSpec* type, size_t num_compound_items, CompoundItem* compound_items) {
     Expr* expr = expr_alloc(EXPR_COMPOUND);
-	expr->compound_expr = (CompoundExpr) { .type=type, .num_exprs=num_exprs, .exprs=_ast_dup(exprs) };
+    expr->compound_expr = (CompoundExpr) { 
+        .type = type, 
+        .num_compound_items = num_compound_items, 
+        .compound_items = _ast_dup(compound_items) 
+    };
     return expr;
 }
 

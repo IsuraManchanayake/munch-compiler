@@ -464,7 +464,12 @@ ResolvedExpr resolve_binary_expr(Expr* expr) {
     }
     assert(left.type == type_int);
     if (left.is_const && right.is_const) {        
-        return (ResolvedExpr) { .value = eval_const_binary_expr(expr->binary_expr.op, left.value, right.value), .type = type_int, .is_lvalue = false, .is_const = true };
+        return (ResolvedExpr) { 
+            .value = eval_const_binary_expr(expr->binary_expr.op, left.value, right.value), 
+            .type = type_int, 
+            .is_lvalue = false, 
+            .is_const = true 
+        };
     }
     else {
         return (ResolvedExpr) { .type = left.type, .is_lvalue = false, .is_const = false };
@@ -615,7 +620,7 @@ ResolvedExpr resolve_ternary_expr(Expr* expr, Type* expected_type) {
         return cond_expr.value ? left_expr : right_expr;
     }
     else {
-        return (ResolvedExpr) { .type = left_expr.type, .is_lvalue = left_expr.is_lvalue && right_expr.is_lvalue, .is_const = false };;
+        return (ResolvedExpr) { .type = left_expr.type, .is_lvalue = left_expr.is_lvalue && right_expr.is_lvalue, .is_const = false };
     }
 }
 
@@ -659,12 +664,27 @@ ResolvedExpr resolve_compound_expr(Expr* expr, Type* expected_type) {
     }
     complete_type(compound_type);
     if (compound_type->type == TYPE_STRUCT || compound_type->type == TYPE_UNION) {
-        if (compound_type->aggregate.num_fields < expr->compound_expr.num_exprs) {
+        if (compound_type->aggregate.num_fields < expr->compound_expr.num_compound_items) {
             fatal("Number of fields in the compound expression exceeds the aggregate definition field count");
         }
         bool is_const = true;
-        for (size_t i = 0; i < expr->compound_expr.num_exprs; i++) {
-            ResolvedExpr r_expr = resolve_expr(expr->compound_expr.exprs[i], NULL);
+        for (size_t i = 0, k = 0; i < expr->compound_expr.num_compound_items; i++, k++) {
+            CompoundItem compound_item = expr->compound_expr.compound_items[i];
+            if (compound_item.type == COMPOUND_INDEX) {
+                fatal("Index items are not allowed in aggregate compound expressions");
+            }
+            if (compound_item.type == COMPOUND_NAME) {
+                for (size_t j = 0; j < compound_type->aggregate.num_fields; j++) {
+                    if (compound_item.name == compound_type->aggregate.fields[j].name) {
+                        k = j;
+                        break;
+                    }
+                }
+            }
+            if (k >= compound_type->aggregate.num_fields) {
+                fatal("Aggregate compound expresssion exceeds expr count");
+            }
+            ResolvedExpr r_expr = resolve_expr(compound_item.value, compound_type->aggregate.fields[k].type);
             is_const &= r_expr.is_const;
             if (compound_type->aggregate.fields[i].type != r_expr.type) {
                 fatal("Field type mismatch with the aggregate definition");
@@ -673,12 +693,29 @@ ResolvedExpr resolve_compound_expr(Expr* expr, Type* expected_type) {
         return (ResolvedExpr) { .type = compound_type, .is_lvalue = false, .is_const = is_const };
     }
     else if (compound_type->type == TYPE_ARRAY) {
-        if (compound_type->array.size < expr->compound_expr.num_exprs) {
+        if (compound_type->array.size < expr->compound_expr.num_compound_items) {
             fatal("Number of fields in the compound expression exceeds the array size");
         }
         bool is_const = true;
-        for (size_t i = 0; i < expr->compound_expr.num_exprs; i++) {
-            ResolvedExpr r_expr = resolve_expr(expr->compound_expr.exprs[i], NULL);
+        for (size_t i = 0, k = 0; i < expr->compound_expr.num_compound_items; i++, k++) {
+            CompoundItem compound_item = expr->compound_expr.compound_items[i];
+            if (compound_item.type == COMPOUND_NAME) {
+                fatal("Named items are not allowed in array compound expressions");
+            }
+            if (compound_item.type == COMPOUND_INDEX) {
+                ResolvedExpr index_expr = resolve_expr(compound_item.index, NULL);
+                if (index_expr.type != type_int && index_expr.type != type_char) {
+                    fatal("An int or char expr is expected in indices of array compound expressions");
+                }
+                if (!index_expr.is_const) {
+                    fatal("Const indices are expected in array compound expressions");
+                }
+                k = index_expr.value;
+            }
+            if (k >= compound_type->array.size) {
+                fatal("Index exceeds the array length in the array compound expression");
+            }
+            ResolvedExpr r_expr = resolve_expr(expr->compound_expr.compound_items[i].value, compound_type->array.base);
             is_const &= r_expr.is_const;
             if (compound_type->array.base != r_expr.type) {
                 fatal("Field type mismatch with the array type");
@@ -702,7 +739,10 @@ ResolvedExpr resolve_cast_expr(Expr* expr) {
         }
     }
     else if (cast_type->type == TYPE_INT) {
-        if (cast_expr.type->type == TYPE_PTR && cast_expr.type->type != TYPE_INT && cast_expr.type->type != TYPE_FLOAT && cast_expr.type->type == TYPE_CHAR) {
+        if (cast_expr.type->type == TYPE_PTR 
+            && cast_expr.type->type != TYPE_INT 
+            && cast_expr.type->type != TYPE_FLOAT 
+            && cast_expr.type->type == TYPE_CHAR) {
             fatal("Unsupported cast to an int");
         }
     }
@@ -911,16 +951,22 @@ void complete_entities(void) {
     }
 }
 
+#pragma TODO("Align fields in aggregate types");
+
 void resolve_decl_test(void) {
     install_built_in_types();
     install_built_in_consts();
     const char* src[] = {
-        "struct PP {x:int; y:int;}",
-        "const a = (3 + 3 * 3 / 3) << 3",
-        "const b = 32 % (~32 + 1 == -32)",
-        "var c = cast(void*) &a",
-        "var d = cast(int*) c",
-        "var e = *d",
+        "struct V {x: int; y: int;}",
+        "var v: V = {y=1, x=2}",
+        "var w: int[3] = {1, [2]=3}",
+        "var vv: V[2] = {{1, 2}, {3, 4}}",
+        //"struct PP {x:int; y:int;}",
+        //"const a = (3 + 3 * 3 / 3) << 3",
+        //"const b = 32 % (~32 + 1 == -32)",
+        //"var c = cast(void*) &a",
+        //"var d = cast(int*) c",
+        //"var e = *d",
         //"var ppa = &a",
         //"var v = (:PP){1, Q}",
         //"enum A{P, Q=5+3*3, R, S}",

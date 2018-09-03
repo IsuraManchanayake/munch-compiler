@@ -247,9 +247,26 @@ void print_expr(Expr* expr) {
             printf(")");
         }
         printf("{");
-        for (size_t i = 0; i < expr->compound_expr.num_exprs; i++) {
-            print_expr(expr->compound_expr.exprs[i]);
-            if(i != expr->compound_expr.num_exprs - 1) printf(",");
+        for (size_t i = 0; i < expr->compound_expr.num_compound_items; i++) {
+            CompoundItem compound_item = expr->compound_expr.compound_items[i];
+            switch (compound_item.type) {
+            case COMPOUND_DEFAULT:
+                break;
+            case COMPOUND_INDEX:
+                printf("[");
+                print_expr(compound_item.index);
+                printf("]");
+                printf(" = ");
+                break;
+            case COMPOUND_NAME:
+                printf("%s", compound_item.name);
+                printf(" = ");
+                break;
+            default:
+                assert(0);
+            }
+            print_expr(compound_item.value);
+            if(i != expr->compound_expr.num_compound_items - 1) printf(", ");
         }
         printf("})");
         break;

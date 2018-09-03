@@ -1,35 +1,40 @@
 # Diary
 
-## 31 July 2018 2 AM
+## 04 September 2018 2 AM
+
+- array and struct initializers with specific names and indices are added (ast, printing, parsing and resolving)
+- few mistakes were fixed in DIARY.md to preserve consistency
+
+## 31 August 2018 2 AM
 
 - cast expr parsing, resolving is added
-- void, char in-built types were added
-- temporary fix for str and float literals were added
-- minor bug was fixed in add expr parsing
+- void, char in-built types are added
+- temporary fix for str and float literals are added
+- minor bug is fixed in add expr parsing
 
-## 30 July 2018 2 AM
+## 30 August 2018 2 AM
 
-- resolve.c code were refactored into more readable code by segementing the code to seperate functions
-- a bug in func entity resolving was fixed
-- ternary, call expr resolving was completed
-- built-in keyword PI was introduced
-- built-in constants (true, false, PI) were added into the resolving process
-- inline structs were replaced by explicit types in the Type definition
-- minor bug was fixed in func typespec printing
-- all empty function declaration parameters ("()") were changed to void ("(void)")
+- resolve.c code are refactored into more readable code by segementing the code to seperate functions
+- a bug in func entity resolving is fixed
+- ternary, call expr resolving is completed
+- built-in keyword PI is introduced
+- built-in constants (true, false, PI) are added into the resolving process
+- inline structs are replaced by explicit types in the Type definition
+- minor bug is fixed in func typespec printing
+- all empty function declaration parameters ("()") are changed to void ("(void)")
 
-## 29 July 2018 1 AM
+## 29 August 2018 1 AM
 
 - enum constants are resolved as constants
 - enum types are resolved as int typedefs
 - compund literal resolving with expected types is completed
-- minor bug was fixed in compound literal parsing
+- minor bug is fixed in compound literal parsing
 
-## 28 July 2018 3 AM
+## 28 August 2018 3 AM
 
 - first working version of the resolve.c (YAY!! FINALLY!) is created in my own way
-- address operator was added as a pre unary operator
-- minor bug was fixed in var declaration printing
+- address operator is added as a pre unary operator
+- minor bug is fixed in var declaration printing
 
 ## 30 July 2018 - 27 August 2018
 
@@ -71,8 +76,8 @@
 - custom exit codes are added for memory allocation errors
 - error token displaying (cool!) method is added
 - error in is_shift_op is fixed
-- '.' is added as a token. previously it was a float literal error
-- error in stmnt_ifelseif was fixed
+- '.' is added as a token. previously it is a float literal error
+- error in stmnt_ifelseif is fixed
 - new parsing features are added
     - optional trailing ',' token for enum or compound expression lists
     - post increment/decrement feature
@@ -99,7 +104,7 @@
 
 ## 21 July 2018 4 AM
 
-- an enum item can have an expression (a const expr which will eventually evaluated to an int val) instead of int value
+- an enum item can has an expression (a const expr which will eventually evaluated to an int val) instead of int value
 - decl parsing is done
 - typespec, expr, stmnt are on the way
 

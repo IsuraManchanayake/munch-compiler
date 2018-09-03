@@ -91,18 +91,34 @@ Expr* parse_expr_literal(void) {
     return NULL;
 }
 
+CompoundItem parse_compound_item() {
+    if (match_token('[')) {
+        Expr* index_expr = parse_expr();
+        expect_token(']');
+        expect_token('=');
+        return compound_index(index_expr, parse_expr());
+    }
+    Expr* expr = parse_expr();
+    if (expr->type == EXPR_NAME) {
+        if (match_token('=')) {
+            return compound_name(expr->name_expr.name, parse_expr());
+        }
+    }
+    return compound_default(expr);
+}
+
 Expr* parse_expr_compound(TypeSpec* type) {
     expect_token('{');
-    Expr** exprs = NULL;
+    CompoundItem* compound_items = NULL;
     if (!is_token('}')) {
-        buf_push(exprs, parse_expr());
+        buf_push(compound_items, parse_compound_item());
         while (match_token(',')) {
             if (is_token('}')) break;
-            buf_push(exprs, parse_expr());
+            buf_push(compound_items, parse_compound_item());
         }
     }
     expect_token('}');
-    return expr_compound(type, buf_len(exprs), exprs);
+    return expr_compound(type, buf_len(compound_items), compound_items);
 }
 
 Expr* parse_expr_sizeof(void) {
@@ -650,7 +666,7 @@ void parse_test(void) {
     PARSE_SRC_STMNT("x + y++ * z;");
     PARSE_SRC_STMNT("x + --y++ * z;");
     PARSE_SRC_STMNT("size += {1, 2, 3}.length;");
-    PARSE_SRC_STMNT("size += int {1, 2, 3}.length;");
+    PARSE_SRC_STMNT("size += (:int[3]) {1, 2, 3}.length;");
     PARSE_SRC_STMNT("if(a == 1 || b <= a++ / 2) { b++; } else if (c > 2 ? b : a) { d[i][j].mm.s(2, 2); } else if (i <= 3 << 2) {d++;} else {a++; if(i < 2) {d /= gcd(a, b);}}");
     PARSE_SRC_STMNT("for(i = 0; i < 10; i++, ++k) {printf(\"hello %d\", i); if(false) {continue;}}");
     PARSE_SRC_STMNT("{while(i < 10 && **j == 20) {a[2][b[3]]=i;} a++;}");
@@ -662,8 +678,8 @@ void parse_test(void) {
     PARSE_SRC_DECL("enum Animal {dog, cat=2 + 1,}");
     PARSE_SRC_DECL("struct Student {name :String; age: int; classes: Class[10]; id:int = -1; class: Class**;}");
     PARSE_SRC_DECL("typedef foo = func (int, int**):String[10]");
-    PARSE_SRC_DECL("func fibonacci(int n): int {if(n <= 1) { return n; } return fibonacci(n-1) + fibonacci(n-2);}");
-    PARSE_SRC_DECL("func kick_animal(Animal a) {"
+    PARSE_SRC_DECL("func fibonacci(n: int): int {if(n <= 1) { return n; } return fibonacci(n-1) + fibonacci(n-2);}");
+    PARSE_SRC_DECL("func kick_animal(a: Animal) {"
                         "switch(a) { "
                             "case Animal.dog:{"
                                 "printf(\"woof\");"
@@ -678,6 +694,8 @@ void parse_test(void) {
                             "}"
                         "}"
                     "}");
+    PARSE_SRC_DECL("var v = Animal{name = \"dog\"}");
+    PARSE_SRC_DECL("var w = (:int[1 << 8]){1, 3, ['a'] = 3, [32] = 11}");
 
     printf("parse test passed\n");
 }
