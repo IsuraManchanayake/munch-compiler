@@ -1,4 +1,5 @@
 void print_expr(Expr*);
+void print_decl(Decl*);
 void print_stmnt_block(BlockStmnt);
 
 const char* esc_to_str[256] = {
@@ -52,6 +53,9 @@ void print_new_line(void) {
 
 void print_stmnt(Stmnt* stmnt) {
     switch (stmnt->type) {
+    case STMNT_DECL:
+        print_decl(stmnt->decl_stmnt.decl);
+        break;
     case STMNT_RETURN:
         printf("return ");
         if (stmnt->return_stmnt.expr) {

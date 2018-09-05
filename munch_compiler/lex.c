@@ -633,6 +633,18 @@ inline bool is_assign_op(void) {
     return token.type == '=' || is_token_between(TOKEN_COLON_ASSIGN, TOKEN_RSHIFT_ASSIGN);
 }
 
+inline bool is_decl_keyword(void) {
+    return token.type == TOKEN_KEYWORD && (
+        token.name == kwrd_enum
+        || token.name == kwrd_struct
+        || token.name == kwrd_union
+        || token.name == kwrd_const
+        || token.name == kwrd_var
+        || token.name == kwrd_typedef
+        || token.name == kwrd_func
+        );
+}
+
 inline bool expect_assign_op(void) {
     if (is_assign_op()) {
         next_token();

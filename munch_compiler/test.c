@@ -5,8 +5,8 @@ void run_tests(void) {
     //TEST(common_test());
     //TEST(lex_test());
     //TEST(print_ast_test());
-    //TEST(parse_test());
-    TEST(resolve_test());
+    TEST(parse_test());
+    //TEST(resolve_test());
 }
 
 #undef TEST

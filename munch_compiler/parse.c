@@ -1,10 +1,11 @@
-Stmnt* parse_stmnt();
-Expr* parse_expr();
-TypeSpec* parse_typespec();
-Expr* parse_expr_cmp();
-Stmnt* parse_stmnt_simple();
+Stmnt* parse_stmnt(void);
+Expr* parse_expr(void);
+Decl* parse_decl(void);
+TypeSpec* parse_typespec(void);
+Expr* parse_expr_cmp(void);
+Stmnt* parse_stmnt_simple(void);
 
-BlockStmnt parse_blockstmnt();
+BlockStmnt parse_blockstmnt(void);
 
 const char* parse_name(void) {
     const char* name = token.name;
@@ -166,8 +167,10 @@ Expr* parse_expr_operand(void) {
     else if (match_keyword(kwrd_cast)) {
         expect_token('(');
         TypeSpec* type = parse_typespec();
+        expect_token(',');
+        Expr* expr = parse_expr();
         expect_token(')');
-        return expr_cast(type, parse_expr());
+        return expr_cast(type, expr);
     }
     syntax_error("Expected an operand expression. Found %s", token_to_str(token));
     return NULL;
@@ -479,6 +482,12 @@ Stmnt* parse_stmnt_simple(void) {
     }
 }
 
+Stmnt* parse_stmnt_decl(void) {
+    Decl* decl = parse_decl();
+    expect_token(';');
+    return stmnt_decl(decl);
+}
+
 Stmnt* parse_stmnt(void) {
     if (match_keyword(kwrd_if)) {
         return parse_stmnt_ifelseif();
@@ -509,6 +518,9 @@ Stmnt* parse_stmnt(void) {
         expect_token(';');
         return stmnt_continue();
     }
+    else if (is_decl_keyword()) {
+        return parse_stmnt_decl();
+    } 
     else {
         Stmnt* stmnt = parse_stmnt_simple();
         expect_token(';');
@@ -696,6 +708,8 @@ void parse_test(void) {
                     "}");
     PARSE_SRC_DECL("var v = Animal{name = \"dog\"}");
     PARSE_SRC_DECL("var w = (:int[1 << 8]){1, 3, ['a'] = 3, [32] = 11}");
+    PARSE_SRC_DECL("func f(a: Animal): int { var a = b; return 2;}");
+    PARSE_SRC_DECL("func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }");
 
     printf("parse test passed\n");
 }

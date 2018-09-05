@@ -182,6 +182,7 @@ typedef enum EntityType {
     ENTITY_FUNC,
     ENTITY_TYPE, // enum, struct, union, typedef
     ENTITY_ENUM_CONST,
+    ENTITY_LOCAL,
 } EntityType;
 
 typedef enum EntityState {
@@ -206,13 +207,24 @@ typedef struct ResolvedExpr {
     bool is_const;
 } ResolvedExpr;
 
-Entity** entities = NULL;
+Entity** global_entities = NULL;
 Entity** ordered_entities = NULL;
 
+#define MAX_LOCAL_ENTITIES 1024
+
+Entity* local_entities[MAX_LOCAL_ENTITIES];
+Entity** local_entities_end = local_entities;
+
 Entity* get_entity(const char* name) {
-    for (size_t i = 0; i < buf_len(entities); i++) {
-        if (entities[i]->name == name) {
-            return entities[i];
+    for (Entity** it = local_entities_end; it != local_entities; it--) {
+        Entity* local_entity = it[-1];
+        if (local_entity->name == name) {
+            return local_entity;
+        }
+    }
+    for (size_t i = 0; i < buf_len(global_entities); i++) {
+        if (global_entities[i]->name == name) {
+            return global_entities[i];
         }
     }
     return NULL;
@@ -223,6 +235,21 @@ Entity* entity_alloc(EntityType e_type) {
     entity->e_type = e_type;
     entity->state = ENTITY_STATE_UNRESOVLED;
     return entity;
+}
+
+void push_local_entity(Entity* entity) {
+    if (local_entities_end == local_entities + MAX_LOCAL_ENTITIES) {
+        fatal("Maximum local entities reached");
+    }
+    *local_entities_end++ = entity;
+}
+
+Entity** enter_scope(void) {
+    return local_entities_end;
+}
+
+void leave_scope(Entity** local_entity) {
+    local_entities_end = local_entity; 
 }
 
 Entity* install_decl(Decl* decl) {
@@ -273,10 +300,10 @@ Entity* install_decl(Decl* decl) {
                 enum_entity->decl = decl_const(enum_item.name, expr_binary('+', expr_int(1), prev_enum_name));
             }
             enum_entity->type = type_int;
-            buf_push(entities, enum_entity);
+            buf_push(global_entities, enum_entity);
         }
     }
-    buf_push(entities, entity);
+    buf_push(global_entities, entity);
     return entity;
 }
 
@@ -289,7 +316,7 @@ Entity* built_in_type(Type* type, const char* name) {
     return entity;
 }
 
-#define _BUILT_IN_TYPE(t) buf_push(entities, built_in_type(type_ ## t, #t));
+#define _BUILT_IN_TYPE(t) buf_push(global_entities, built_in_type(type_ ## t, #t));
 
 void install_built_in_types(void) {
     _BUILT_IN_TYPE(void);
@@ -309,7 +336,7 @@ Entity* built_in_const(Type* type, const char* name, Expr* const_expr) {
     return entity;
 }
 
-#define _BUILT_IN_CONST(t, n, v) buf_push(entities, built_in_const(type_ ## t, n, expr_ ## t(v)))
+#define _BUILT_IN_CONST(t, n, v) buf_push(global_entities, built_in_const(type_ ## t, n, expr_ ## t(v)))
 
 void install_built_in_consts(void) {
     _BUILT_IN_CONST(int, kwrd_true, 1);
@@ -935,7 +962,128 @@ void resolve_entity_func(Entity* entity) {
         complete_type(ret_type);
     }
     entity->type = type_func(buf_len(param_types), param_types, ret_type);
+    resolve_stmnt_block(entity->decl->func_decl.block, ret_type);
     buf_push(ordered_entities, entity);
+}
+
+Entity* entity_local_var(const char* name, Type* type) {
+    Entity* entity = entity_alloc(ENTITY_LOCAL);
+    entity->name = name;
+    entity->type = type;
+    return entity;
+}
+
+void resolve_stmnt_block(BlockStmnt block, Stmnt* ret_type);
+
+void resolve_cond_expr(Expr* cond_expr, BlockStmnt block, Type* ret_type) {
+    ResolvedExpr cond = resolve_expr(cond_expr, type_int);
+    if (cond.type != type_int) {
+        fatal("int type is expected in an if condition expr");
+    }
+    resolve_stmnt_block(block, ret_type, ret_type);
+}
+
+void resolve_stmnt(Stmnt* stmnt, Stmnt* ret_type) {
+    switch (stmnt->type) {
+    case STMNT_DECL:
+        break;
+    case STMNT_RETURN: {
+        ResolvedExpr return_expr = resolve_expr(stmnt->return_stmnt.expr, ret_type);
+        if (return_expr.type != ret_type) {
+            fatal("Return statement type mismatch with the function return type");
+        }
+        break;
+    }
+    case STMNT_IF_ELSE: {
+        resolve_cond_expr(stmnt->ifelseif_stmnt.if_cond, stmnt->ifelseif_stmnt.then_block, ret_type);
+        for (size_t i = 0; i < stmnt->ifelseif_stmnt.num_else_ifs; i++) {
+            resolve_cond_expr(stmnt->ifelseif_stmnt.else_ifs[i].cond, stmnt->ifelseif_stmnt.else_ifs[i].block, ret_type);
+        }
+        resolve_stmnt_block(stmnt->ifelseif_stmnt.else_block, ret_type);
+        break;
+    }
+    case STMNT_SWITCH: {
+        ResolvedExpr switch_expr = resolve_expr(stmnt->switch_stmnt.switch_expr, NULL);
+        for (size_t i = 0; i < stmnt->switch_stmnt.num_case_blocks; i++) {
+            resolve_cond_expr(stmnt->switch_stmnt.case_blocks[i].case_expr, stmnt->switch_stmnt.case_blocks[i].block, ret_type);
+        }
+        resolve_stmnt_block(stmnt->switch_stmnt.default_block, ret_type);
+        break;
+    }
+    case STMNT_WHILE:
+    case STMNT_DO_WHILE: {
+        resolve_cond_expr(stmnt->while_stmnt.cond, stmnt->while_stmnt.block, ret_type);
+        break;
+    }
+    case STMNT_FOR: {
+        Entity** local_entity = enter_scope();
+        for (size_t i = 0; i < stmnt->for_stmnt.num_init; i++) {
+            resolve_stmnt(stmnt->for_stmnt.init[i], NULL);
+        }
+        ResolvedExpr cond = resolve_expr(stmnt->for_stmnt.cond, type_int);
+        if (cond.type != type_int) {
+            fatal("An int is expected in the condition of a for stmnt");
+        }
+        for (size_t i = 0; i < stmnt->for_stmnt.num_update; i++) {
+            resolve_stmnt(stmnt->for_stmnt.update[i], NULL);
+        }
+        resolve_stmnt_block(stmnt->for_stmnt.block, ret_type);
+        leave_scope(local_entity);
+        break;
+    }
+    case STMNT_ASSIGN: {
+        ResolvedExpr left = resolve_expr(stmnt->assign_stmnt.left, type_int);
+        ResolvedExpr right = resolve_expr(stmnt->assign_stmnt.right, type_int);
+        if (stmnt->assign_stmnt.op != '=') {
+            if (left.type != type_int) {
+                fatal("An int is expected in the left operand of an assignment");
+            }
+            if (right.type != type_int) {
+                fatal("An int is expected in the right operand of an assignment");
+            }
+        }
+        else {
+            if (left.type != right.type) {
+                fatal("Left operand and right operand types should be matched in an assignment");
+            }
+        }
+        if (!left.is_lvalue || left.is_const) {
+            fatal("A modifiable lvalue is expected as the left operand of an assignement");
+        }
+        break;
+    }
+    case STMNT_BREAK:
+    case STMNT_CONTINUE:
+        break;
+    case STMNT_BLOCK: {
+        resolve_stmnt_block(stmnt->block_stmnt, ret_type);
+        break;
+    }
+    case STMNT_EXPR: {
+        resolve_expr(stmnt->expr_stmnt.expr, NULL);
+        break;
+    }
+    default:
+        assert(0);
+    }
+}
+
+void resolve_stmnt_block(BlockStmnt block, Stmnt* ret_type) {
+    Entity** local_sym = enter_scope();
+    for (size_t i = 0; i < block.num_stmnts; i++) {
+        resolve_stmnt(block.stmnts[i], ret_type);
+    }
+    leave_scope(local_sym);
+}
+
+void resolve_func(Entity* entity) {
+    assert(entity->type == ENTITY_FUNC);
+    Decl* decl = entity->decl;
+    for (size_t i = 0; i < decl->func_decl.num_params; i++) {
+        Entity* param = entity_local_var(decl->func_decl.params[i].name, resolve_typespec(decl->func_decl.params[i].type));
+        push_local_entity(param);
+    }
+    resolve_stmnt_block(decl->func_decl.block, resolve_typespec(decl->func_decl.ret_type));
 }
 
 void complete_entity(Entity* entity) {
@@ -946,7 +1094,7 @@ void complete_entity(Entity* entity) {
 }
 
 void complete_entities(void) {
-    for (Entity** it = entities; it != buf_end(entities); it++) {
+    for (Entity** it = global_entities; it != buf_end(global_entities); it++) {
         complete_entity(*it);
     }
 }
@@ -961,6 +1109,7 @@ void resolve_decl_test(void) {
         "var v: V = {y=1, x=2}",
         "var w: int[3] = {1, [2]=3}",
         "var vv: V[2] = {{1, 2}, {3, 4}}",
+        "func add(a: V, b: V): V { var c: V c = {a.x + b.x, a.y + b.y}; return c; }",
         //"struct PP {x:int; y:int;}",
         //"const a = (3 + 3 * 3 / 3) << 3",
         //"const b = 32 % (~32 + 1 == -32)",

@@ -1,5 +1,11 @@
 # Diary
 
+## 06 September 2018 3 AM
+
+- local declarations are added (ast, printing, parsing and not resolving)
+- local entity resolving is started
+- resolving statements of function blocks is added (tests yet to be run) 
+
 ## 04 September 2018 2 AM
 
 - array and struct initializers with specific names and indices are added (ast, printing, parsing and resolving)

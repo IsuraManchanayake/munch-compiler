@@ -477,6 +477,7 @@ Expr* expr_sizeof_expr(Expr* s_expr) {
 
 typedef enum StmntType {
     STMNT_NONE,
+    STMNT_DECL,
     STMNT_RETURN,
     STMNT_IF_ELSE,
     STMNT_SWITCH,
@@ -489,6 +490,10 @@ typedef enum StmntType {
     STMNT_BLOCK,
     STMNT_EXPR
 } StmntType;
+
+typedef struct DeclStmnt {
+    Decl* decl;
+} DeclStmnt;
 
 typedef struct ElseIfItem {
 	Expr* cond;
@@ -548,6 +553,7 @@ typedef struct ExprStmnt {
 struct Stmnt {
     StmntType type;
     union {
+        DeclStmnt decl_stmnt;
 		IfElseIfStmnt ifelseif_stmnt;
 		SwitchStmnt switch_stmnt;
 		WhileStmnt while_stmnt;
@@ -566,6 +572,12 @@ Stmnt* stmnt_alloc(StmntType type) {
     memset(stmnt, 0, sizeof(Stmnt));
 	stmnt->type = type;
 	return stmnt;
+}
+
+Stmnt* stmnt_decl(Decl* decl) {
+    Stmnt* stmnt = stmnt_alloc(STMNT_DECL);
+    stmnt->decl_stmnt = (DeclStmnt) { decl };
+    return stmnt;
 }
 
 Stmnt* stmnt_return(Expr* expr) {
