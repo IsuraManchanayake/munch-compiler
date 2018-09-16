@@ -1,5 +1,14 @@
 # Diary
 
+## 17 September 2018 2 AM
+
+- C code generation is started
+- corresponding Type is included in Expr types (assigned in the resolving stage)
+- buf_printf and strf functions are added
+- is_decl_keyword is optimized
+- empty function return types are filled with void type
+- few bugs are fixed local entity resolving
+
 ## 06 September 2018 3 AM
 
 - local declarations are added (ast, printing, parsing and not resolving)
@@ -9,7 +18,7 @@
 ## 04 September 2018 2 AM
 
 - array and struct initializers with specific names and indices are added (ast, printing, parsing and resolving)
-- few mistakes were fixed in DIARY.md to preserve consistency
+- few mistakes are fixed in DIARY.md to preserve consistency
 
 ## 31 August 2018 2 AM
 

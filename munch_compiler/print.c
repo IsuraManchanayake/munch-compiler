@@ -424,8 +424,10 @@ void print_ast_test(void) {
     CREATE_PRINT_EXPR(e4, expr_unary(EXPR_PRE_UNARY, '!', e3));
     CREATE_PRINT_EXPR(e5, expr_ternary(e4, expr_call(expr_name("foo"), 2, (Expr*[]) { expr_int(2), expr_str("bar") }), expr_int(2)));
     CREATE_PRINT_EXPR(e6, expr_field(expr_cast(typespec_name("vector"),
-                                               expr_compound(typespec_name("int"), 2, (Expr*[]) { expr_str("a"), expr_str("b") })), "size"));
-    CREATE_PRINT_EXPR(e7, expr_index(expr_compound(t2, 1, (Expr*[]) { expr_int(2) }), expr_call(expr_name("foo"), 0, NULL)));
+                                               expr_compound(typespec_name("int"), 2, (CompoundItem[]) { 
+                                                   { .type=COMPOUND_DEFAULT, .value=expr_str("a") }, { .type=COMPOUND_DEFAULT, .value=expr_str("b") }
+                                                })), "size"));
+    CREATE_PRINT_EXPR(e7, expr_index(expr_compound(t2, 1, (CompoundItem[]) { {.type=COMPOUND_DEFAULT, .value=expr_int(2)} }), expr_call(expr_name("foo"), 0, NULL)));
 
     CREATE_PRINT_DECL(d1, decl_enum("Animal", 2, (EnumItem[]) { { "dog", expr_int(0) }, { "cat", expr_int(1) } }));
     CREATE_PRINT_DECL(d2, decl_aggregate(DECL_STRUCT, "Student", 2, (AggregateItem[]) { { "name", typespec_name("string"), expr_str("NONE") }, { "age", typespec_name("int"), expr_int(0) } }));

@@ -364,6 +364,9 @@ ResolvedExpr resolve_name(const char* name) {
     else if (entity->e_type == ENTITY_FUNC) {
         return (ResolvedExpr) { .type = entity->type, .is_lvalue = false, .is_const = false };
     }
+    else if (entity->e_type == ENTITY_LOCAL) {
+        return (ResolvedExpr) { .type = entity->type, .is_lvalue = true, .is_const = false };
+    }
     else {
         fatal("A value expression is expected by %s", name);
         return (ResolvedExpr) { 0 };
@@ -390,39 +393,58 @@ void complete_type(Type* type);
 Type* resolve_typespec(TypeSpec* typespec);
 
 ResolvedExpr resolve_expr(Expr* expr, Type* expected_type) {
+    if (expr == NULL && expected_type == type_void) {
+        return (ResolvedExpr) { .type = type_void, .is_lvalue = false, .is_const = false };
+    }
+    ResolvedExpr r_expr;
     switch (expr->type) {
     case EXPR_BINARY:
-        return resolve_binary_expr(expr);
+        r_expr = resolve_binary_expr(expr);
+        break;
     case EXPR_PRE_UNARY:
-        return resolve_pre_unary_expr(expr);
+        r_expr = resolve_pre_unary_expr(expr);
+        break;
     case EXPR_POST_UNARY:
-        return resolve_post_unary_expr(expr);
+        r_expr = resolve_post_unary_expr(expr);
+        break;
     case EXPR_INT:
-        return resolve_int_expr(expr);
+        r_expr = resolve_int_expr(expr);
+        break;
     case EXPR_FLOAT:
-        return resolve_float_expr(expr);
+        r_expr = resolve_float_expr(expr);
+        break;
     case EXPR_NAME:
-        return resolve_name_expr(expr);
+        r_expr = resolve_name_expr(expr);
+        break;
     case EXPR_INDEX:
-        return resolve_index_expr(expr);
+        r_expr = resolve_index_expr(expr);
+        break;
     case EXPR_FIELD:
-        return resolve_field_expr(expr);
+        r_expr = resolve_field_expr(expr);
+        break;
     case EXPR_SIZEOF_TYPE:
-        return resolve_sizeof_type_expr(expr);
+        r_expr = resolve_sizeof_type_expr(expr);
+        break;
     case EXPR_TERNARY:
-        return resolve_ternary_expr(expr, expected_type);
+        r_expr = resolve_ternary_expr(expr, expected_type);
+        break;
     case EXPR_CALL:
-        return resolve_call_expr(expr, expected_type);
+        r_expr = resolve_call_expr(expr, expected_type);
+        break;
     case EXPR_STR:
-        return resolve_str_expr(expr);
+        r_expr = resolve_str_expr(expr);
+        break;
     case EXPR_COMPOUND:
-        return resolve_compound_expr(expr, expected_type);
+        r_expr = resolve_compound_expr(expr, expected_type);
+        break;
     case EXPR_CAST:
-        return resolve_cast_expr(expr);
+        r_expr = resolve_cast_expr(expr);
+        break;
     default:
         assert(0);
     }
-    return (ResolvedExpr) { 0 };
+    expr->resolved_type = r_expr.type;
+    return r_expr;
 }
 
 int64_t eval_const_binary_expr(TokenType op, int64_t left, int64_t right) {
@@ -737,7 +759,10 @@ ResolvedExpr resolve_compound_expr(Expr* expr, Type* expected_type) {
                 if (!index_expr.is_const) {
                     fatal("Const indices are expected in array compound expressions");
                 }
-                k = index_expr.value;
+                if (index_expr.value < 0) {
+                    fatal("Index expr should be non-negative");
+                }
+                k = (size_t) index_expr.value;
             }
             if (k >= compound_type->array.size) {
                 fatal("Index exceeds the array length in the array compound expression");
@@ -949,6 +974,8 @@ void resolve_entity_enum_const(Entity* entity) {
     resolve_entity_const(entity);
 }
 
+void resolve_stmnt_block(BlockStmnt block, Type* ret_type);
+
 void resolve_entity_func(Entity* entity) {
     Type ** param_types = NULL;
     for (size_t i = 0; i < entity->decl->func_decl.num_params; i++) {
@@ -962,7 +989,6 @@ void resolve_entity_func(Entity* entity) {
         complete_type(ret_type);
     }
     entity->type = type_func(buf_len(param_types), param_types, ret_type);
-    resolve_stmnt_block(entity->decl->func_decl.block, ret_type);
     buf_push(ordered_entities, entity);
 }
 
@@ -970,24 +996,26 @@ Entity* entity_local_var(const char* name, Type* type) {
     Entity* entity = entity_alloc(ENTITY_LOCAL);
     entity->name = name;
     entity->type = type;
+    entity->state = ENTITY_STATE_RESOLVED;
     return entity;
 }
-
-void resolve_stmnt_block(BlockStmnt block, Stmnt* ret_type);
 
 void resolve_cond_expr(Expr* cond_expr, BlockStmnt block, Type* ret_type) {
     ResolvedExpr cond = resolve_expr(cond_expr, type_int);
     if (cond.type != type_int) {
         fatal("int type is expected in an if condition expr");
     }
-    resolve_stmnt_block(block, ret_type, ret_type);
+    resolve_stmnt_block(block, ret_type);
 }
 
-void resolve_stmnt(Stmnt* stmnt, Stmnt* ret_type) {
+void resolve_stmnt(Stmnt* stmnt, Type* ret_type) {
     switch (stmnt->type) {
-    case STMNT_DECL:
+    case STMNT_DECL: {
+        assert(stmnt->decl_stmnt.decl->type == DECL_VAR);
+        push_local_entity(entity_local_var(stmnt->decl_stmnt.decl->name, resolve_typespec(stmnt->decl_stmnt.decl->var_decl.type)));
         break;
-    case STMNT_RETURN: {
+    }
+    case STMNT_RETURN: { 
         ResolvedExpr return_expr = resolve_expr(stmnt->return_stmnt.expr, ret_type);
         if (return_expr.type != ret_type) {
             fatal("Return statement type mismatch with the function return type");
@@ -1005,7 +1033,11 @@ void resolve_stmnt(Stmnt* stmnt, Stmnt* ret_type) {
     case STMNT_SWITCH: {
         ResolvedExpr switch_expr = resolve_expr(stmnt->switch_stmnt.switch_expr, NULL);
         for (size_t i = 0; i < stmnt->switch_stmnt.num_case_blocks; i++) {
-            resolve_cond_expr(stmnt->switch_stmnt.case_blocks[i].case_expr, stmnt->switch_stmnt.case_blocks[i].block, ret_type);
+            ResolvedExpr cond = resolve_expr(stmnt->switch_stmnt.case_blocks[i].case_expr, switch_expr.type);
+            if (cond.type != switch_expr.type) {
+                fatal("switch type is expected in a case condition expr");
+            }
+            resolve_stmnt_block(stmnt->switch_stmnt.case_blocks[i].block, ret_type);
         }
         resolve_stmnt_block(stmnt->switch_stmnt.default_block, ret_type);
         break;
@@ -1032,8 +1064,8 @@ void resolve_stmnt(Stmnt* stmnt, Stmnt* ret_type) {
         break;
     }
     case STMNT_ASSIGN: {
-        ResolvedExpr left = resolve_expr(stmnt->assign_stmnt.left, type_int);
-        ResolvedExpr right = resolve_expr(stmnt->assign_stmnt.right, type_int);
+        ResolvedExpr left = resolve_expr(stmnt->assign_stmnt.left, NULL);
+        ResolvedExpr right = resolve_expr(stmnt->assign_stmnt.right, left.type);
         if (stmnt->assign_stmnt.op != '=') {
             if (left.type != type_int) {
                 fatal("An int is expected in the left operand of an assignment");
@@ -1068,7 +1100,7 @@ void resolve_stmnt(Stmnt* stmnt, Stmnt* ret_type) {
     }
 }
 
-void resolve_stmnt_block(BlockStmnt block, Stmnt* ret_type) {
+void resolve_stmnt_block(BlockStmnt block, Type* ret_type) {
     Entity** local_sym = enter_scope();
     for (size_t i = 0; i < block.num_stmnts; i++) {
         resolve_stmnt(block.stmnts[i], ret_type);
@@ -1077,7 +1109,7 @@ void resolve_stmnt_block(BlockStmnt block, Stmnt* ret_type) {
 }
 
 void resolve_func(Entity* entity) {
-    assert(entity->type == ENTITY_FUNC);
+    assert(entity->e_type == ENTITY_FUNC);
     Decl* decl = entity->decl;
     for (size_t i = 0; i < decl->func_decl.num_params; i++) {
         Entity* param = entity_local_var(decl->func_decl.params[i].name, resolve_typespec(decl->func_decl.params[i].type));
@@ -1091,6 +1123,9 @@ void complete_entity(Entity* entity) {
     if (entity->e_type == ENTITY_TYPE) {
         complete_type(entity->type);
     }
+    else if (entity->e_type == ENTITY_FUNC) {
+        resolve_func(entity);
+    }
 }
 
 void complete_entities(void) {
@@ -1099,7 +1134,8 @@ void complete_entities(void) {
     }
 }
 
-#pragma TODO("Align fields in aggregate types");
+#pragma TODO("Align fields in aggregate types")
+#pragma TODO("Do pointer decay for arrays")
 
 void resolve_decl_test(void) {
     install_built_in_types();
@@ -1109,7 +1145,10 @@ void resolve_decl_test(void) {
         "var v: V = {y=1, x=2}",
         "var w: int[3] = {1, [2]=3}",
         "var vv: V[2] = {{1, 2}, {3, 4}}",
-        "func add(a: V, b: V): V { var c: V c = {a.x + b.x, a.y + b.y}; return c; }",
+        "func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }",
+        "func fib(n: int): int { if(n <= 1) {return n;} return fib(n - 1) + fib(n - 2);}",
+        "func printf(a: int) {return;}",
+        "func one(n: int) { if(n < 0) {return;} var i:int; for(i = 0; i < n; i++) {printf(1);}}",
         //"struct PP {x:int; y:int;}",
         //"const a = (3 + 3 * 3 / 3) << 3",
         //"const b = 32 % (~32 + 1 == -32)",
@@ -1161,7 +1200,7 @@ void resolve_decl_test(void) {
 }
 
 resolve_test(void) {
-    printf("----- resolve.c -----\n");
+    printf("----- gen.c -----\n");
     resolve_decl_test();
-    printf("resolve test passed");
+    printf("gen test passed");
 }

@@ -86,6 +86,44 @@ void* _buf_grow(const void* buf, size_t new_len, size_t elem_size) {
     return new_hdr->buf;
 }
 
+char* strf(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(NULL, 0, fmt, args) + 1;
+    va_end(args);
+    va_start(args, fmt);
+    char* str = xmalloc(len * sizeof(char));
+    vsnprintf(str, len, fmt, args);
+    va_end(args);
+    return str;
+}
+
+char* _buf_printf(char* buf, const char* fmt, ...) {
+    va_list args;
+
+    va_start(args, fmt);
+    int len = vsnprintf(NULL, 0, fmt, args) + 1;
+    va_end(args);
+
+    size_t curr = buf_len(buf);
+    size_t new = curr + len;
+    if (buf_cap(buf) < new) {
+        buf = _buf_grow(buf, new, sizeof(char));
+        *(buf + new) = 0;
+    }
+
+    va_start(args, fmt);
+    vsnprintf(buf + curr, len, fmt, args);
+    _buf_hdr(buf)->len += len - 1;
+    va_end(args);
+    return buf;
+}
+
+#define buf_printf(buf, fmt, ...) \
+    do { \
+        (buf) = _buf_printf((buf), fmt, ##__VA_ARGS__); \
+    } while(0) \
+
 #define _STR(x) #x
 #define STR(x) _STR(x)
 #define TODO(x) message(":warning:TODO: " #x)
@@ -175,6 +213,16 @@ void buf_test(void) {
     printf("BufHdr test passed\n");
 }
 
+void buf_printf_test(void) {
+    char* buf = NULL;
+    buf_printf(buf, "a");
+    buf_printf(buf, "d");
+    buf_printf(buf, "adsfa\n");
+    buf_printf(buf, "%d %f %x || %s", 12, 3.2, 1337, "sd");
+    buf_printf(buf, "%dfaasdf sdf dsd \n", 3);
+    printf("%s", buf);
+}
+
 void intern_str_test(void) {
     char* a = "hi";
     char* b = "hi";
@@ -187,5 +235,6 @@ void intern_str_test(void) {
 void common_test(void) {
     printf("----- common.c -----\n");
     buf_test();
+    buf_printf_test();
     intern_str_test();
 }

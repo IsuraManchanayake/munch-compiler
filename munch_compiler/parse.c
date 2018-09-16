@@ -637,6 +637,9 @@ Decl* parse_decl_func(void) {
     if (match_token(':')) {
         ret_type = parse_typespec();
     }
+    else {
+        ret_type = typespec_name(str_intern("void"));
+    }
     return decl_func(name, buf_len(func_params), func_params, ret_type, parse_blockstmnt());
 }
 

@@ -2,6 +2,8 @@ typedef struct Expr Expr;
 typedef struct Stmnt Stmnt;
 typedef struct Decl Decl;
 
+typedef struct Type Type;
+
 typedef struct TypeSpec TypeSpec;
 typedef struct FuncParam FuncParam;
 
@@ -337,6 +339,7 @@ typedef struct SizeofExpr {
 
 struct Expr {
     ExprType type;
+    Type* resolved_type;
     union {
 		TernaryExpr ternary_expr;
 		BinaryExpr binary_expr;

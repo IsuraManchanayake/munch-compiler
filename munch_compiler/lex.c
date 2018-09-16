@@ -634,15 +634,7 @@ inline bool is_assign_op(void) {
 }
 
 inline bool is_decl_keyword(void) {
-    return token.type == TOKEN_KEYWORD && (
-        token.name == kwrd_enum
-        || token.name == kwrd_struct
-        || token.name == kwrd_union
-        || token.name == kwrd_const
-        || token.name == kwrd_var
-        || token.name == kwrd_typedef
-        || token.name == kwrd_func
-        );
+    return token.type == TOKEN_KEYWORD && token.name >= first_kwrd && token.name <= last_kwrd;
 }
 
 inline bool expect_assign_op(void) {

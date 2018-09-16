@@ -15,6 +15,7 @@
 #include "print.c"
 #include "parse.c"
 #include "resolve.c"
+#include "gen.c"
 #include "test.c"
 
 int main(int argc, char** argv) {
