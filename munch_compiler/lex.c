@@ -59,7 +59,7 @@ void init_keywords(void) {
     _INIT_KEYWORD(false);
     _INIT_KEYWORD(PI);
     first_kwrd = kwrd_if;
-    last_kwrd = kwrd_false;
+    last_kwrd = kwrd_PI;
     keyword_inited = true;
 }
 

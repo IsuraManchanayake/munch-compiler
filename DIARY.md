@@ -1,8 +1,17 @@
 # Diary
 
+## 20 September 2018 1 AM
+
+- C code generation for some of decls are completed
+- full source stream parsing is added
+- DeclSet type is introduced to store all declarations
+- Type is included as a field in TypeSpec
+- a minor bug in keyword tokens is fixed
+
 ## 17 September 2018 2 AM
 
 - C code generation is started
+    - Type to C decl is completed
 - corresponding Type is included in Expr types (assigned in the resolving stage)
 - buf_printf and strf functions are added
 - is_decl_keyword is optimized

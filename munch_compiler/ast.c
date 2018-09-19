@@ -1,6 +1,7 @@
 typedef struct Expr Expr;
 typedef struct Stmnt Stmnt;
 typedef struct Decl Decl;
+typedef struct DeclSet DeclSet;
 
 typedef struct Type Type;
 
@@ -58,6 +59,7 @@ typedef struct PtrTypeSpec {
 
 typedef struct TypeSpec {
     TypeSpecType type;
+    Type* resolved_type;
     union {
 		NameTypeSpec name;
 		FuncTypeSpec func;
@@ -175,6 +177,11 @@ struct Decl {
     };
 };
 
+struct DeclSet {
+    Decl** decls;
+    size_t num_decls;
+};
+
 // --------------------------------------------------------
 
 Decl* decl_alloc(DeclType type, const char* name) {
@@ -228,6 +235,14 @@ Decl* decl_func(const char* name, size_t num_params, FuncParam* params, TypeSpec
         .block = block 
     };
 	return decl;
+}
+
+DeclSet* declset(Decl** decls, size_t num_decls) {
+    DeclSet* declset = arena_alloc(&ast_arena, sizeof(DeclSet));
+    memset(declset, 0, sizeof(DeclSet));
+    declset->decls = _ast_dup(decls);
+    declset->num_decls = num_decls;
+    return declset;
 }
 
 // ========================================================

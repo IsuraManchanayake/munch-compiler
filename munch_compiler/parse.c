@@ -669,6 +669,14 @@ Decl* parse_decl(void) {
     return NULL;
 }
 
+DeclSet* parse_stream(void) {
+    Decl** decls = NULL;
+    while (token.type != TOKEN_EOF) {
+        buf_push(decls, parse_decl());
+    }
+    return declset(decls, buf_len(decls));
+}
+
 #define PARSE_SRC_DECL(src) init_stream(src); print_decl(parse_decl()); printf("\n-----------------------------\n")
 #define PARSE_SRC_STMNT(src) init_stream(src); print_stmnt(parse_stmnt()); printf("\n-----------------------------\n")
 
@@ -713,6 +721,16 @@ void parse_test(void) {
     PARSE_SRC_DECL("var w = (:int[1 << 8]){1, 3, ['a'] = 3, [32] = 11}");
     PARSE_SRC_DECL("func f(a: Animal): int { var a = b; return 2;}");
     PARSE_SRC_DECL("func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }");
+
+    const char* src = "enum Animal {dog, cat=2 + 1,}\n"
+        "struct Student {name :String; age: int; classes: Class[10]; id:int = -1; class: Class**;}";
+
+    init_stream(src);
+    DeclSet* declset = parse_stream();
+    for (size_t i = 0; i < declset->num_decls; i++) {
+        print_decl(declset->decls[i]);
+        printf("\n");
+    }
 
     printf("parse test passed\n");
 }

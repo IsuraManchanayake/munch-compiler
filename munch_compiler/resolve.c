@@ -307,6 +307,12 @@ Entity* install_decl(Decl* decl) {
     return entity;
 }
 
+void install_decls(DeclSet* declset) {
+    for (size_t i = 0; i < declset->num_decls; i++) {
+        install_decl(declset->decls[i]);
+    }
+}
+
 Entity* built_in_type(Type* type, const char* name) {
     Entity* entity = entity_alloc(ENTITY_TYPE);
     entity->name = str_intern(name);
@@ -833,6 +839,7 @@ Type* resolve_typespec_name(TypeSpec* typespec) {
     if (entity->e_type != ENTITY_TYPE) {
         fatal("A type name is expected. Got %s", name);
     }
+    typespec->resolved_type = entity->type;
     return entity->type;
 }
 
@@ -843,7 +850,9 @@ Type* resolve_typespec_func(TypeSpec* typespec) {
         params[i] = resolve_typespec(typespec->func.params[i]);
     }
     Type* ret_type = resolve_typespec(typespec->func.ret_type);
-    return type_func(typespec->func.num_params, params, ret_type);
+    Type* result = type_func(typespec->func.num_params, params, ret_type);
+    typespec->resolved_type = result;
+    return result;
 }
 
 Type* resolve_typespec_array(TypeSpec* typespec) {
@@ -855,12 +864,16 @@ Type* resolve_typespec_array(TypeSpec* typespec) {
     if (!is_between(size_expr.value, 0, SIZE_MAX)) {
         fatal("invalid expr value for array size");
     }
-    return type_array(resolve_typespec(typespec->array.base), (size_t)size_expr.value);
+    Type* result = type_array(resolve_typespec(typespec->array.base), (size_t)size_expr.value);
+    typespec->resolved_type = result;
+    return result;
 }
 
 Type* resolve_typespec_ptr(TypeSpec* typespec) {
     assert(typespec->type == TYPESPEC_PTR);
-    return type_ptr(resolve_typespec(typespec->ptr.base));
+    Type* result = type_ptr(resolve_typespec(typespec->ptr.base));
+    typespec->type = result;
+    return result;
 }
 
 void complete_type(Type* type) {
@@ -1135,20 +1148,20 @@ void complete_entities(void) {
 }
 
 #pragma TODO("Align fields in aggregate types")
-#pragma TODO("Do pointer decay for arrays")
+#pragma TODO("Do pointer decaying for arrays")
 
 void resolve_decl_test(void) {
     install_built_in_types();
     install_built_in_consts();
-    const char* src[] = {
-        "struct V {x: int; y: int;}",
-        "var v: V = {y=1, x=2}",
-        "var w: int[3] = {1, [2]=3}",
-        "var vv: V[2] = {{1, 2}, {3, 4}}",
-        "func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }",
-        "func fib(n: int): int { if(n <= 1) {return n;} return fib(n - 1) + fib(n - 2);}",
-        "func printf(a: int) {return;}",
-        "func one(n: int) { if(n < 0) {return;} var i:int; for(i = 0; i < n; i++) {printf(1);}}",
+    //const char* src[] = {
+    //    "struct V {x: int; y: int;}",
+    //    "var v: V = {y=1, x=2}",
+    //    "var w: int[3] = {1, [2]=3}",
+    //    "var vv: V[2] = {{1, 2}, {3, 4}}",
+    //    "func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }",
+    //    "func fib(n: int): int { if(n <= 1) {return n;} return fib(n - 1) + fib(n - 2);}",
+    //    "func printf(a: int) {return;}",
+    //    "func one(n: int) { if(n < 0) {return;} var i:int; for(i = 0; i < n; i++) {printf(1);}}",
         //"struct PP {x:int; y:int;}",
         //"const a = (3 + 3 * 3 / 3) << 3",
         //"const b = 32 % (~32 + 1 == -32)",
@@ -1186,12 +1199,16 @@ void resolve_decl_test(void) {
         //"const m = sizeof(t.a)",
         //"var i = n+m",
         //"var q = &i",
-    };
-    for (int i = 0; i < sizeof(src) / sizeof(*src); i++) {
-        init_stream(src[i]);
-        Decl* decl = parse_decl();
-        install_decl(decl);
-    }
+    //};
+    const char* src = "struct V {x: int; y: int;}\n"
+                        "var v: V = {y=1, x=2}\n"
+                        "var w: int[3] = {1, [2]=3}\n"
+                        "var vv: V[2] = {{1, 2}, {3, 4}}\n"
+                        "func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }\n"
+                        "func fib(n: int): int { if(n <= 1) {return n;} return fib(n - 1) + fib(n - 2);}\n";
+    init_stream(src);
+    DeclSet* declset = parse_stream();
+    install_decls(declset);
     complete_entities();
     for (Entity** it = ordered_entities; it != buf_end(ordered_entities); it++) {
         print_decl((*it)->decl);
