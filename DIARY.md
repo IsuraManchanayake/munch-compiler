@@ -1,5 +1,9 @@
 # Diary
 
+## 28 September 2018 1 AM
+
+- C code generation for decls, exprs are completed
+
 ## 20 September 2018 1 AM
 
 - C code generation for some of decls are completed

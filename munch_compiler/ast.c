@@ -307,14 +307,14 @@ typedef struct NameExpr {
 	const char* name;
 } NameExpr;
 
-typedef enum CompoundType {
+typedef enum CompoundItemType {
     COMPOUND_DEFAULT,
     COMPOUND_INDEX,
     COMPOUND_NAME
-} CompoundType;
+} CompoundItemType;
 
 typedef struct CompoundItem {
-    CompoundType type;
+    CompoundItemType type;
     union {
         const char* name;
         Expr* index;

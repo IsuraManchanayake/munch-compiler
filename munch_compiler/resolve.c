@@ -872,7 +872,7 @@ Type* resolve_typespec_array(TypeSpec* typespec) {
 Type* resolve_typespec_ptr(TypeSpec* typespec) {
     assert(typespec->type == TYPESPEC_PTR);
     Type* result = type_ptr(resolve_typespec(typespec->ptr.base));
-    typespec->type = result;
+    typespec->resolved_type = result;
     return result;
 }
 
