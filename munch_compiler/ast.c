@@ -503,6 +503,7 @@ typedef enum StmntType {
     STMNT_DO_WHILE,
     STMNT_FOR,
     STMNT_ASSIGN,
+    STMNT_INIT,
     STMNT_BREAK,
     STMNT_CONTINUE,
     STMNT_BLOCK,
@@ -558,6 +559,11 @@ typedef struct AssignStmnt {
 	TokenType op;
 } AssignStmnt;
 
+typedef struct InitStmnt {
+    Expr* left;
+    Expr* right;
+} InitStmnt;
+
 typedef struct ReturnStmnt {
 	Expr* expr;
 } ReturnStmnt;
@@ -577,6 +583,7 @@ struct Stmnt {
 		WhileStmnt while_stmnt;
 		ForStmnt for_stmnt;
 		AssignStmnt assign_stmnt;
+        InitStmnt init_stmnt;
 		BlockStmnt block_stmnt;
 		ReturnStmnt return_stmnt;
         ExprStmnt expr_stmnt;
@@ -648,10 +655,16 @@ Stmnt* stmnt_for(size_t num_init, Stmnt** init, Expr* cond, size_t num_update, S
 }
 
 Stmnt* stmnt_assign(Expr* left, Expr* right, TokenType op) {
-    assert(is_between(op, TOKEN_COLON_ASSIGN, TOKEN_RSHIFT_ASSIGN) || op == '=');
+    assert(is_between(op, TOKEN_ADD_ASSIGN, TOKEN_RSHIFT_ASSIGN) || op == '=');
 	Stmnt* stmnt = stmnt_alloc(STMNT_ASSIGN);
 	stmnt->assign_stmnt = (AssignStmnt) { .left = left, .right = right, .op = op };
 	return stmnt;
+}
+
+Stmnt* stmnt_init(Expr* left, Expr* right) {
+    Stmnt* stmnt = stmnt_alloc(STMNT_INIT);
+    stmnt->init_stmnt = (InitStmnt) { .left = left, .right = right };
+    return stmnt;
 }
 
 Stmnt* stmnt_break(void) {

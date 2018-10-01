@@ -387,7 +387,7 @@ Stmnt* parse_stmnt_do(void) {
     return stmnt_while(STMNT_DO_WHILE, cond, block);
 }
 
-Stmnt* parse_for_init_update(void) {
+Stmnt* parse_for_update(void) {
     Stmnt* stmnt = parse_stmnt_simple();
     if (stmnt->type != STMNT_ASSIGN && stmnt->type != STMNT_EXPR) {
         basic_syntax_error("Expected an assign statement or expression. Found <STMNT %d>", stmnt->type);
@@ -399,9 +399,9 @@ Stmnt* parse_stmnt_for(void) {
     expect_token('(');
     Stmnt** init = NULL;
     if (!is_token(';')) {
-        buf_push(init, parse_for_init_update());
+        buf_push(init, parse_stmnt_simple());
         while (match_token(',')) {
-            buf_push(init, parse_for_init_update());
+            buf_push(init, parse_stmnt_simple());
         }
     }
     expect_token(';');
@@ -412,9 +412,9 @@ Stmnt* parse_stmnt_for(void) {
     expect_token(';');
     Stmnt** update = NULL;
     if (!is_token(')')) {
-        buf_push(update, parse_for_init_update());
+        buf_push(update, parse_for_update());
         while (match_token(',')) {
-            buf_push(update, parse_for_init_update());
+            buf_push(update, parse_for_update());
         }
     }
     expect_token(')');
@@ -424,6 +424,9 @@ Stmnt* parse_stmnt_for(void) {
 Stmnt* parse_stmnt_assign(void) {
     Expr* left = parse_expr();
     TokenType op = token.type;
+    if (match_token(TOKEN_COLON_ASSIGN)) {
+        return stmnt_init(left, parse_expr());
+    }
     expect_assign_op();
     return stmnt_assign(left, parse_expr(), op);
 }
@@ -472,10 +475,8 @@ Stmnt* parse_stmnt_simple(void) {
         next_token();
         return stmnt_assign(left, parse_expr(), op);
     }
-    else if (token.type == TOKEN_INC || token.type == TOKEN_DEC) {
-        TokenType op = token.type;
-        next_token();
-        return stmnt_assign(left, NULL, op);
+    else if (match_token(TOKEN_COLON_ASSIGN)) {
+        return stmnt_init(left, parse_expr());
     }
     else {
         return stmnt_expr(left);
@@ -721,6 +722,7 @@ void parse_test(void) {
     PARSE_SRC_DECL("var w = (:int[1 << 8]){1, 3, ['a'] = 3, [32] = 11}");
     PARSE_SRC_DECL("func f(a: Animal): int { var a = b; return 2;}");
     PARSE_SRC_DECL("func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }");
+    PARSE_SRC_DECL("func f() {for(i := 0, j := 0, k = 0; i < 10; i++, k := 0) { print(i); } }");
 
     const char* src = "enum Animal {dog, cat=2 + 1,}\n"
         "struct Student {name :String; age: int; classes: Class[10]; id:int = -1; class: Class**;}";

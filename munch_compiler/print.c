@@ -132,6 +132,11 @@ void print_stmnt(Stmnt* stmnt) {
         printf(" ");
         print_expr(stmnt->assign_stmnt.right);
         break;
+    case STMNT_INIT:
+        print_expr(stmnt->init_stmnt.left);
+        printf(" := ");
+        print_expr(stmnt->init_stmnt.right);
+        break;
     case STMNT_BREAK:
         printf("break");
         break;

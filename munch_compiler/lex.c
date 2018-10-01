@@ -630,7 +630,7 @@ inline bool is_unary_op(void) {
 }
 
 inline bool is_assign_op(void) {
-    return token.type == '=' || is_token_between(TOKEN_COLON_ASSIGN, TOKEN_RSHIFT_ASSIGN);
+    return token.type == '=' || is_token_between(TOKEN_ADD_ASSIGN, TOKEN_RSHIFT_ASSIGN);
 }
 
 inline bool is_decl_keyword(void) {

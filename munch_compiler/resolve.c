@@ -1097,6 +1097,14 @@ void resolve_stmnt(Stmnt* stmnt, Type* ret_type) {
         }
         break;
     }
+    case STMNT_INIT: {
+        if (stmnt->init_stmnt.left->type != EXPR_NAME) {
+            fatal("A name expression is expected as the left operand of an init statement");
+        }
+        ResolvedExpr right = resolve_expr(stmnt->init_stmnt.right, NULL);
+        push_local_entity(entity_local_var(stmnt->init_stmnt.left->name_expr.name, right.type));
+        break;
+    }
     case STMNT_BREAK:
     case STMNT_CONTINUE:
         break;
@@ -1201,11 +1209,13 @@ void resolve_decl_test(void) {
         //"var q = &i",
     //};
     const char* src = "struct V {x: int; y: int;}\n"
-                        "var v: V = {y=1, x=2}\n"
-                        "var w: int[3] = {1, [2]=3}\n"
-                        "var vv: V[2] = {{1, 2}, {3, 4}}\n"
-                        "func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }\n"
-                        "func fib(n: int): int { if(n <= 1) {return n;} return fib(n - 1) + fib(n - 2);}\n";
+        "var v: V = {y=1, x=2}\n"
+        "var w: int[3] = {1, [2]=3}\n"
+        "var vv: V[2] = {{1, 2}, {3, 4}}\n"
+        "func add(a: V, b: V): V { var c: V; c = {a.x + b.x, a.y + b.y}; return c; }\n"
+        "func fib(n: int): int { if(n <= 1) {return n;} return fib(n - 1) + fib(n - 2);}\n"
+        "func f(): void {j := 0; for(i := 0, j = 1; i < 10; i++, j++) { fib(i + j); }}";
+
     init_stream(src);
     DeclSet* declset = parse_stream();
     install_decls(declset);
@@ -1217,7 +1227,7 @@ void resolve_decl_test(void) {
 }
 
 resolve_test(void) {
-    printf("----- gen.c -----\n");
+    printf("----- resolve.c -----\n");
     resolve_decl_test();
-    printf("gen test passed");
+    printf("resolve test passed");
 }

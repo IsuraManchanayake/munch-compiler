@@ -1,5 +1,11 @@
 # Diary
 
+## 1 October 2018 2 AM
+
+- initializing statements are added (e.g. i := 0 where i variable is declared at the moment)
+- for statement inits are updated correspondingly
+- C code generation for statements are completed without complete testing
+
 ## 28 September 2018 1 AM
 
 - C code generation for decls, exprs are completed
