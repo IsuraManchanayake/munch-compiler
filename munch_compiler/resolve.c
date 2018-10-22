@@ -861,7 +861,7 @@ Type* resolve_typespec_array(TypeSpec* typespec) {
     if (!size_expr.is_const) {
         fatal("const is expected in an array size expression");
     }
-    if (!is_between(size_expr.value, 0, SIZE_MAX)) {
+    if (!is_between(size_expr.value, 0, (int64_t)SIZE_MAX)) {
         fatal("invalid expr value for array size");
     }
     Type* result = type_array(resolve_typespec(typespec->array.base), (size_t)size_expr.value);
@@ -1226,7 +1226,7 @@ void resolve_decl_test(void) {
     }
 }
 
-resolve_test(void) {
+void resolve_test(void) {
     printf("----- resolve.c -----\n");
     resolve_decl_test();
     printf("resolve test passed");

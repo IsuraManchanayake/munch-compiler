@@ -50,13 +50,70 @@ void basic_syntax_error(const char* fmt, ...) {
     exit(1);
 }
 
+char* read_file(const char* path) {
+    FILE* fp = fopen(path, "rb");
+    if (!fp) {
+        return NULL;
+    }
+    fseek(fp, 0, SEEK_END);
+    long len = ftell(fp);
+    rewind(fp);
+    char* buf = xmalloc(len + 1);
+    if (fread(buf, len, 1, fp) != 1) {
+        fclose(fp);
+        free(buf);
+        return NULL;
+    }
+    buf[len] = 0;
+    fclose(fp);
+    return buf;
+}
+
+bool write_file(const char* path, const char* buf, size_t len) {
+    FILE* fp = fopen(path, "w");
+    if (!fp) {
+        return false;
+    }
+    if (fwrite(buf, len, 1, fp) != 1) {
+        fclose(fp);
+        return false;
+    }
+    fclose(fp);
+    return true;
+}
+
+char* change_ext(const char* path, const char* new_ext) {
+    char* buf = NULL;
+    size_t path_len = strlen(path);
+    size_t new_ext_len = strlen(new_ext);
+    long idx = -1;
+    for (size_t i = path_len; i > 0; i--) {
+        if (path[i - 1] == '.') {
+            idx = i;
+            break;
+        }
+    }
+    if (idx == -1) {
+        return NULL;
+    }
+    buf = xmalloc(idx + new_ext_len + 1);
+    memcpy(buf, path, path_len);
+    memcpy(buf + idx, new_ext, new_ext_len);
+    buf[idx + new_ext_len] = 0;
+    return buf;
+}
+
 #define is_between(x, a, b) ((x) >= (a) && (x) <= (b))
 
 typedef struct BufHdr {
     size_t len;
     size_t cap;
-    char buf[0];
+    char buf[];
 } BufHdr;
+
+#ifndef max
+#define max(x, y) ((x) > (y) ? (x) : (y))
+#endif
 
 #define _buf_hdr(b) ((BufHdr*)((char*)(b) -  offsetof(BufHdr, buf)))
 #define buf_len(b) ((b) ? _buf_hdr(b)->len : 0)
@@ -108,7 +165,7 @@ char* _buf_printf(char* buf, const char* fmt, ...) {
     size_t curr = buf_len(buf);
     size_t new = curr + len;
     if (buf_cap(buf) < new) {
-        buf = _buf_grow(buf, new, sizeof(char));
+        buf = _buf_grow(buf, new + 1, sizeof(char));
         *(buf + new) = 0;
     }
 
@@ -232,9 +289,23 @@ void intern_str_test(void) {
     printf("InternStr test passed\n");
 }
 
+void io_test(void) {
+    char* buf = read_file("main.c");
+    printf("%s\n", buf);
+    write_file("abc.txt", buf, strlen(buf));
+    free(buf);
+}
+
+void ext_change_test(void) {
+    char* buf = change_ext("abc.txt", "c");
+    printf("%s\n", buf);
+}
+
 void common_test(void) {
     printf("----- common.c -----\n");
     buf_test();
     buf_printf_test();
     intern_str_test();
+    io_test();
+    ext_change_test();
 }

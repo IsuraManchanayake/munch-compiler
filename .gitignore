@@ -9,3 +9,5 @@ munch_compiler/x64
 *.vcxproj.filters
 *.vcxproj.user
 
+*_output.c
+*.exe

@@ -154,7 +154,7 @@ void scan_int(void) {
         }
     }
     for(;;) {
-        uint64_t digit = char_to_digit[*stream];
+        uint64_t digit = char_to_digit[(size_t)*stream];
         if (digit == 0 && *stream != '0') {
             break;
         }
@@ -200,6 +200,19 @@ void scan_float(void) {
     token.floatval = val;
 }
 
+const char *esc_char_to_str[256] = {
+    ['\n'] = "\\n",
+    ['\r'] = "\\r",
+    ['\t'] = "\\t",
+    ['\v'] = "\\v",
+    ['\b'] = "\\b",
+    ['\a'] = "\\a",
+    ['\f'] = "\\f",
+    ['\0'] = "\\0",
+    ['"'] = "\\\"",
+    ['\\'] = "\\\\"
+};
+
 const char esc_to_char[256] = {
     ['n'] = '\n',
     ['r'] = '\r',
@@ -226,7 +239,7 @@ void scan_char(void) {
     }
     if (*stream == '\\') {
         stream++;
-        val = *stream == '"' ? 0 : esc_to_char[*stream];
+        val = *stream == '"' ? 0 : esc_to_char[(size_t)*stream];
         if (val == 0 && *stream != '0') {
             basic_syntax_error("Undefined escape char literal");
         }
@@ -259,7 +272,7 @@ void scan_str(void) {
         }
         if (*stream == '\\') {
             stream++;
-            val = *stream == '\'' ? 0 : esc_to_char[*stream];
+            val = *stream == '\'' ? 0 : esc_to_char[(size_t)*stream];
             if (val == 0 && *stream != '0') {
                 basic_syntax_error("Undefined escape char literal");
             }
@@ -439,6 +452,8 @@ const char* op_to_str(TokenType op) {
         return "<<=";
     case TOKEN_RSHIFT_ASSIGN:
         return ">>=";
+    default:
+        break;
     }
     static char op_buf[2];
     op_buf[0] = op;
@@ -446,77 +461,77 @@ const char* op_to_str(TokenType op) {
     return op_buf;
 }
 
-const char* token_to_str(Token tok) {
-    static char buf[256];
+char* token_to_str(Token tok) {
+    char* buf = NULL;
     switch (tok.type) {
     case TOKEN_EOF:
-        sprintf_s(buf, sizeof(buf), "<TOKEN_EOF>");
+        buf_printf(buf, "<TOKEN_EOF>");
         break;
     case TOKEN_LAST_CHAR:
-        sprintf_s(buf, sizeof(buf), "<TOKEN_LAST_CHAR>");
+        buf_printf(buf, "<TOKEN_LAST_CHAR>");
         break;
     case TOKEN_KEYWORD:
-        sprintf_s(buf, sizeof(buf), "<KEYWORD %s>", tok.name);
+        buf_printf(buf, "<KEYWORD %s>", tok.name);
         break;
     case TOKEN_INT:
-        sprintf_s(buf, sizeof(buf), tok.mod == TOK_MOD_CHAR ? "<CHAR %c>" : "<INT %d>", tok.intval);
+        buf_printf(buf, tok.mod == TOK_MOD_CHAR ? "<CHAR %c>" : "<INT %d>", tok.intval);
         break;
     case TOKEN_FLOAT:
-        sprintf_s(buf, sizeof(buf), "<FLOAT %f>", tok.floatval);
+        buf_printf(buf, "<FLOAT %f>", tok.floatval);
         break;
     case TOKEN_STR:
-        sprintf_s(buf, sizeof(buf), "<STR %s>", tok.strval);
+        buf_printf(buf, "<STR %s>", tok.strval);
         break;
     case TOKEN_NAME:
-        sprintf_s(buf, sizeof(buf), "<NAME %s>", tok.name);
+        buf_printf(buf, "<NAME %s>", tok.name);
         break;
     default:
         if (tok.type >= TOKEN_INC && tok.type <= TOKEN_RSHIFT_ASSIGN) {
-            sprintf_s(buf, sizeof(buf), "<OP %s>", op_to_str(tok.type));
+            buf_printf(buf, "<OP %s>", op_to_str(tok.type));
         }
         else if (tok.type < 127) {
-            sprintf_s(buf, sizeof(buf), "<%c>", tok.type);
+            buf_printf(buf, "<%c>", tok.type);
         }
         else {
-            sprintf_s(buf, sizeof(buf), "<ASCII %d(%c)>", tok.type, tok.type);
+            buf_printf(buf, "<ASCII %d(%c)>", tok.type, tok.type);
         }
     }
     return buf;
 }
 
-const char* tokentype_to_str(TokenType type) {
-    static char buf[256];
+char* tokentype_to_str(TokenType type) {
+    char* buf = NULL;
     switch (type) {
     case TOKEN_LAST_CHAR:
-        sprintf_s(buf, sizeof(buf), "TOKEN_LAST_CHAR");
+        buf_printf(buf, "TOKEN_LAST_CHAR");
         break;
     case TOKEN_INT:
-        sprintf_s(buf, sizeof(buf), "TOKEN_INT");
+        buf_printf(buf, "TOKEN_INT");
         break;
     case TOKEN_FLOAT:
-        sprintf_s(buf, sizeof(buf), "TOKEN_FLOAT");
+        buf_printf(buf, "TOKEN_FLOAT");
         break;
     case TOKEN_STR:
-        sprintf_s(buf, sizeof(buf), "TOKEN_STR");
+        buf_printf(buf, "TOKEN_STR");
         break;
     case TOKEN_NAME:
-        sprintf_s(buf, sizeof(buf), "TOKEN_NAME");
+        buf_printf(buf, "TOKEN_NAME");
         break;
     case TOKEN_KEYWORD:
-        sprintf_s(buf, sizeof(buf), "TOKEN_KEYWORD");
+        buf_printf(buf, "TOKEN_KEYWORD");
         break;
     case TOKEN_EOF:
-        sprintf_s(buf, sizeof(buf), "TOKEN_EOF");
+        buf_printf(buf, "TOKEN_EOF");
         break;
     default:
         if (type < 128 && isprint(type)) {
-            sprintf_s(buf, sizeof(buf), "%c", type);
+            buf_printf(buf, "%c", type);
         }
         else if (type < TOKEN_RSHIFT_ASSIGN) {
-            sprintf_s(buf, sizeof(buf), "\"%s\"", op_to_str(type));
+            buf_printf(buf, "\"%s\"", op_to_str(type));
         }
         else {
-            sprintf_s(buf, sizeof(buf), "<ASCII %d(%c)>", type, type);
+            buf_printf(buf, "<ASCII %d(%c)>", type, type);
         }
     }
     return buf;
@@ -528,7 +543,7 @@ void show_error_token(void) {
     size_t curr = token.start - src_start;
     size_t left = max(curr - ERROR_DISPLAY_WIDTH / 2, 0);
     size_t len = (left + ERROR_DISPLAY_WIDTH) % (strlen(src_start)) - left;
-    printf("%.*s\n", len, src_start + left);
+    printf("%.*s\n", (int)len, src_start + left);
     size_t err_pos = curr - left;
     if (err_pos) {
         char* ss = malloc(sizeof(char) * (err_pos + 1));
@@ -548,19 +563,19 @@ void show_error_token(void) {
         basic_syntax_error(fmt, __VA_ARGS__); \
     } while(0)
 
-inline bool is_token(TokenType type) {
+bool is_token(TokenType type) {
     return token.type == type;
 }
 
-inline bool is_token_name(const char* name) {
+bool is_token_name(const char* name) {
     return token.type == TOKEN_NAME && token.name == name;
 }
 
-inline bool is_keyword(const char* name) {
+bool is_keyword(const char* name) {
     return token.type == TOKEN_KEYWORD && token.name == name;
 }
 
-inline bool match_token(TokenType type) {
+bool match_token(TokenType type) {
     if (is_token(type)) {
         next_token();
         return true;
@@ -569,7 +584,7 @@ inline bool match_token(TokenType type) {
 }
 
 // NOTE: name should be intern str
-inline bool match_keyword(const char* name) {
+bool match_keyword(const char* name) {
     if (is_keyword(name)) {
         next_token();
         return true;
@@ -577,7 +592,7 @@ inline bool match_keyword(const char* name) {
     return false;
 }
 
-inline bool expect_token(TokenType type) {
+bool expect_token(TokenType type) {
     if (is_token(type)) {
         next_token();
         return true;
@@ -589,7 +604,7 @@ inline bool expect_token(TokenType type) {
     }
 }
 
-inline bool expect_keyword(const char* name) {
+bool expect_keyword(const char* name) {
     if (is_keyword(name)) {
         next_token();
         return true;
@@ -603,41 +618,41 @@ inline bool expect_keyword(const char* name) {
 
 #define is_token_between(l, r) is_between(token.type, l, r)
 
-inline bool is_literal(void) {
+bool is_literal(void) {
     return is_token_between(TOKEN_INT, TOKEN_STR) || (token.type == TOKEN_KEYWORD && (token.name == kwrd_true || token.name == kwrd_false));
 }
 
-inline bool is_cmp_op(void) {
+bool is_cmp_op(void) {
     return token.type == '<' || token.type == '>' || is_token_between(TOKEN_EQ, TOKEN_GTEQ);
 }
 
-inline bool is_shift_op(void) {
+bool is_shift_op(void) {
     return token.type == TOKEN_LSHIFT || token.type == TOKEN_RSHIFT;
 }
 
-inline bool is_add_op(void) {
+bool is_add_op(void) {
     return token.type == '+' || token.type == '-';
 }
 
-inline bool is_mul_op(void) {
+bool is_mul_op(void) {
     return token.type == '*' || token.type == '/' || token.type == '%';
 }
 
-inline bool is_unary_op(void) {
+bool is_unary_op(void) {
     return token.type == '-' || token.type == '+' || token.type == '~'
         || token.type == '&' || token.type == '*' || token.type == '!'
         || token.type == TOKEN_INC || token.type == TOKEN_DEC;
 }
 
-inline bool is_assign_op(void) {
+bool is_assign_op(void) {
     return token.type == '=' || is_token_between(TOKEN_ADD_ASSIGN, TOKEN_RSHIFT_ASSIGN);
 }
 
-inline bool is_decl_keyword(void) {
+bool is_decl_keyword(void) {
     return token.type == TOKEN_KEYWORD && token.name >= first_kwrd && token.name <= last_kwrd;
 }
 
-inline bool expect_assign_op(void) {
+bool expect_assign_op(void) {
     if (is_assign_op()) {
         next_token();
         return true;

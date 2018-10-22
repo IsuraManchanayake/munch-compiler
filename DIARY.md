@@ -1,5 +1,14 @@
 # Diary
 
+## 23 October 2018 2 AM
+
+- an end to end workflow is created (compiling a given input file path and write the generated C code to a file)
+- all gcc pedantic warnings are fixed except expecting at least one arguments for variadic macros, non enumerables in case values
+- \_\_VA_ARGS\_\_ are replaced with ##\_\_VA_ARGS\_\_
+- gen_ functions for different types of ASTs are moved to different sub gen_ functions
+- type expectancy for compound literals are moved as a parameter to the gen_expr_compound function
+- all sprintf_s are replaced with buf_printf
+
 ## 1 October 2018 2 AM
 
 - initializing statements are added (e.g. i := 0 where i variable is declared at the moment)
@@ -12,7 +21,7 @@
 
 ## 20 September 2018 1 AM
 
-- C code generation for some of decls are completed
+- C code generation for some of the decl types are completed
 - full source stream parsing is added
 - DeclSet type is introduced to store all declarations
 - Type is included as a field in TypeSpec

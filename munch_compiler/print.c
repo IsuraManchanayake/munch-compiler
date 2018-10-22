@@ -2,25 +2,11 @@ void print_expr(Expr*);
 void print_decl(Decl*);
 void print_stmnt_block(BlockStmnt);
 
-const char* esc_to_str[256] = {
-    ['\n'] = "\\n",
-    ['\r'] = "\\r",
-    ['\t'] = "\\t",
-    ['\v'] = "\\v",
-    ['\b'] = "\\b",
-    ['\a'] = "\\a",
-    ['\f'] = "\\f",
-    ['\0'] = "\\0",
-    ['"'] = "\\\"",
-    ['\\'] = "\\\\"
-};
-
 void print_str(const char* str) {
     printf("\"");
     for (size_t i = 0; i < strlen(str); i++) {
-        if (esc_to_str[str[i]]) {
-            //printf("%d", strlen(esc_to_str[str[i]]));
-            printf("%s", esc_to_str[str[i]]);
+        if (esc_char_to_str[(size_t)str[i]]) {
+            printf("%s", esc_char_to_str[(size_t)str[i]]);
         }
         else {
             printf("%c", str[i]);
@@ -31,7 +17,7 @@ void print_str(const char* str) {
 
 void print_char(char c) {
     printf("'");
-    (c != '"' && esc_to_str[c]) ? printf("%s", esc_to_str[c]) : (c == '\'' ? printf("\\'") : printf("%c", c));
+    (c != '"' && esc_char_to_str[(size_t)c]) ? printf("%s", esc_char_to_str[(size_t)c]) : (c == '\'' ? printf("\\'") : printf("%c", c));
     printf("'");
 }
 
@@ -237,7 +223,7 @@ void print_expr(Expr* expr) {
         printf("))");
         break;
     case EXPR_INT:
-        printf("%llu", expr->int_expr.int_val);
+        printf("%"PRId64, expr->int_expr.int_val);
         break;
     case EXPR_FLOAT:
         printf("%f", expr->float_expr.float_val);
@@ -396,17 +382,17 @@ void print_decl(Decl* decl) {
 #undef INDENT
 #undef UNINDENT
 
-print_expr_line(Expr* expr) {
+void print_expr_line(Expr* expr) {
     print_expr(expr);
     printf("\n");
 }
 
-print_typespec_line(TypeSpec* typespec) {
+void print_typespec_line(TypeSpec* typespec) {
     print_typespec(typespec);
     printf("\n");
 }
 
-print_decl_line(Decl* decl) {
+void print_decl_line(Decl* decl) {
     print_decl(decl);
     printf("\n");
 }
