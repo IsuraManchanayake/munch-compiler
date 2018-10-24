@@ -121,6 +121,33 @@ typedef struct Token {
 Token token;
 const char* src_start;
 const char* stream;
+const char* src_path;
+size_t line_num = 1;
+
+void show_error_token(void) {
+    printf("(%s:%zu)", src_path ? src_path : "", line_num);
+    //size_t curr = token.start - src_start;
+    //size_t left = max(curr - ERROR_DISPLAY_WIDTH / 2, 0);
+    //size_t len = (left + ERROR_DISPLAY_WIDTH) % (strlen(src_start)) - left;
+    //printf("%.*s\n", (int)len, src_start + left);
+    //size_t err_pos = curr - left;
+    //if (err_pos) {
+    //    char* ss = malloc(sizeof(char) * (err_pos + 1));
+    //    memset(ss, ' ', sizeof(char) * err_pos);
+    //    ss[err_pos] = 0;
+    //    printf("%s^\n", ss);
+    //    free(ss);
+    //}
+    //else {
+    //    printf("^\n");
+    //}
+}
+
+#define syntax_error(fmt, ...) \
+    do { \
+        show_error_token(); \
+        basic_syntax_error(fmt, __VA_ARGS__); \
+    } while(0)
 
 const char char_to_digit[256] = {
     ['0'] = 0, ['1'] = 1, ['2'] = 2, ['3'] = 3, ['4'] = 4, ['5'] = 5, ['6'] = 6, ['7'] = 7, ['8'] = 8, ['9'] = 9,
@@ -294,6 +321,42 @@ void scan_str(void) {
     token.strval = str_buf;
 }
 
+void scan_comments(void) {
+    if (*stream == '/') {
+        stream++;
+        while (*stream != '\n' && *stream != '\r' && *stream != EOF) {
+            if (*stream == '\n') {
+                line_num++;
+            }
+            stream++;
+        }
+    }
+    else if (*stream == '*') {
+        stream++;
+        while (*stream != EOF) {
+            if (*stream == '\n') {
+                line_num++;
+            }
+            stream++;
+            if (*stream == '*') {
+                stream++;
+                if (*stream == '/') {
+                    stream++;
+                    return;
+                }
+                else if (*stream == EOF) {
+                    token.type = TOKEN_EOF;
+                    return;
+                }
+            }
+            else if (*stream == EOF) {
+                token.type = TOKEN_EOF;
+                return;
+            }
+        }
+    }
+}
+
 #define CASE_1(op_start, op_1, tok_1) \
     case op_start: \
         token.type = op_start; \
@@ -337,7 +400,12 @@ void next_token(void) {
     token.start = stream;
     switch (*stream) {
     case ' ': case '\n': case '\t': case '\r': case '\v': case '\b': case '\f': case '\a': {
-        while (isspace(*stream)) stream++;
+        while (isspace(*stream)) {
+            if (*stream == '\n') {
+                line_num++;
+            }
+            stream++;
+        }
         next_token();
         break;
     }
@@ -366,10 +434,22 @@ void next_token(void) {
         scan_str();
         break;
     }
+    case '/': {
+        token.type = '/';
+        stream++;
+        if (*stream == '=') {
+            token.type = TOKEN_DIV_ASSIGN;
+            stream++;
+        }
+        else if(*stream == '*' || *stream == '/') {
+            scan_comments();
+            next_token();
+        }
+        break;
+    }
     CASE_1('=', '=', TOKEN_EQ);
     CASE_1('!', '=', TOKEN_NEQ);
     CASE_1(':', '=', TOKEN_COLON_ASSIGN);
-    CASE_1('/', '=', TOKEN_DIV_ASSIGN);
     CASE_1('*', '=', TOKEN_MUL_ASSIGN);
     CASE_1('%', '=', TOKEN_MOD_ASSIGN);
     CASE_1('^', '=', TOKEN_BIT_XOR_ASSIGN);
@@ -539,30 +619,6 @@ char* tokentype_to_str(TokenType type) {
 
 #define ERROR_DISPLAY_WIDTH 20
 
-void show_error_token(void) {
-    size_t curr = token.start - src_start;
-    size_t left = max(curr - ERROR_DISPLAY_WIDTH / 2, 0);
-    size_t len = (left + ERROR_DISPLAY_WIDTH) % (strlen(src_start)) - left;
-    printf("%.*s\n", (int)len, src_start + left);
-    size_t err_pos = curr - left;
-    if (err_pos) {
-        char* ss = malloc(sizeof(char) * (err_pos + 1));
-        memset(ss, ' ', sizeof(char) * err_pos);
-        ss[err_pos] = 0;
-        printf("%s^\n", ss);
-        free(ss);
-    }
-    else {
-        printf("^\n");
-    }
-}
-
-#define syntax_error(fmt, ...) \
-    do { \
-        show_error_token(); \
-        basic_syntax_error(fmt, __VA_ARGS__); \
-    } while(0)
-
 bool is_token(TokenType type) {
     return token.type == type;
 }
@@ -599,7 +655,7 @@ bool expect_token(TokenType type) {
     }
     else {
         show_error_token();
-        fatal("Expected token %s. Found %s.", tokentype_to_str(type), token_to_str(token));
+        syntax_error("Expected token %s. Found %s.", tokentype_to_str(type), token_to_str(token));
         return false;
     }
 }
@@ -611,7 +667,7 @@ bool expect_keyword(const char* name) {
     }
     else {
         show_error_token();
-        fatal("Expected keyword \"%s\". Found \"%s\".", name, token_to_str(token));
+        syntax_error("Expected keyword \"%s\". Found \"%s\".", name, token_to_str(token));
         return false;
     }
 }
@@ -659,7 +715,7 @@ bool expect_assign_op(void) {
     }
     else {
         show_error_token();
-        fatal("Expected an assign operator. Found %s", tokentype_to_str(token.type));
+        syntax_error("Expected an assign operator. Found %s", tokentype_to_str(token.type));
         return false;
     }
 }

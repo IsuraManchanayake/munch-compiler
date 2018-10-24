@@ -1,5 +1,18 @@
 # Diary
 
+## 25 October 2018 12 AM
+
+- 2 MB source compilation as a torture test is added (elapsed time 6-7 seconds when compiled with -O3) - performance can be further increased by using hashing and better data structures (TODO)
+- error reporting (syntax errors, resolve errors) with line numbers and source path is added
+- incompleted enum const resolving and C code generation are completed
+- single line and multiline comments are added as a feature
+- size of expr is added in resolver
+- a minor buf in typespec resolving is fixed
+- a minor bug in array size is fixed
+- bugs in statement var declaration is fixed
+- a minor bug in do while loop parsing is fixed
+- a minor bug in block statement C generation is fixed
+
 ## 23 October 2018 2 AM
 
 - an end to end workflow is created (compiling a given input file path and write the generated C code to a file)

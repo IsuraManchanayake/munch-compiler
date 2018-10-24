@@ -11,3 +11,7 @@ munch_compiler/x64
 
 *_output.c
 *.exe
+*.o
+
+*/munch_test/*.c
+*/munch_test/*.mch

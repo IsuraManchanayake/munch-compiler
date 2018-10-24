@@ -21,6 +21,11 @@ void* ast_dup(const void* ast, size_t size) {
 
 #define _ast_dup(x) (ast_dup(x, num_##x * sizeof(*x)))
 
+typedef struct SrcLoc {
+    const char* src_name;
+    size_t line_num;
+} SrcLoc;
+
 typedef struct BlockStmnt {
     size_t num_stmnts;
     Stmnt** stmnts;
@@ -60,6 +65,7 @@ typedef struct PtrTypeSpec {
 typedef struct TypeSpec {
     TypeSpecType type;
     Type* resolved_type;
+    SrcLoc loc;
     union {
 		NameTypeSpec name;
 		FuncTypeSpec func;
@@ -74,6 +80,7 @@ TypeSpec* typespec_alloc(TypeSpecType type) {
     TypeSpec* typespec = arena_alloc(&ast_arena, sizeof(TypeSpec));
     memset(typespec, 0, sizeof(TypeSpec));
     typespec->type = type;
+    typespec->loc = (SrcLoc) { src_path, line_num };
     return typespec;
 }
 
@@ -167,6 +174,7 @@ typedef struct FuncDecl {
 struct Decl {
     DeclType type;
     const char* name;
+    SrcLoc loc;
     union {
 		EnumDecl enum_decl;
 		AggregateDecl aggregate_decl;
@@ -189,6 +197,7 @@ Decl* decl_alloc(DeclType type, const char* name) {
     memset(decl, 0, sizeof(Decl));
 	decl->type = type;
 	decl->name = name;
+    decl->loc = (SrcLoc) { src_path, line_num };
 	return decl;
 }
 
@@ -355,6 +364,7 @@ typedef struct SizeofExpr {
 struct Expr {
     ExprType type;
     Type* resolved_type;
+    SrcLoc loc;
     union {
 		TernaryExpr ternary_expr;
 		BinaryExpr binary_expr;
@@ -379,6 +389,7 @@ Expr* expr_alloc(ExprType type) {
     Expr* expr = arena_alloc(&ast_arena, sizeof(Expr));
     memset(expr, 0, sizeof(Expr));
     expr->type = type;
+    expr->loc = (SrcLoc) { src_path, line_num };
     return expr;
 }
 
@@ -576,6 +587,7 @@ typedef struct ExprStmnt {
 
 struct Stmnt {
     StmntType type;
+    SrcLoc loc;
     union {
         DeclStmnt decl_stmnt;
 		IfElseIfStmnt ifelseif_stmnt;
@@ -596,6 +608,7 @@ Stmnt* stmnt_alloc(StmntType type) {
     Stmnt* stmnt = arena_alloc(&ast_arena, sizeof(Stmnt));
     memset(stmnt, 0, sizeof(Stmnt));
 	stmnt->type = type;
+    stmnt->loc = (SrcLoc) { src_path, line_num };
 	return stmnt;
 }
 

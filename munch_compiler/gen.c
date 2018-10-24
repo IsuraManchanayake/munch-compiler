@@ -321,8 +321,11 @@ void gen_stmnt_block(BlockStmnt block) {
     genf("{");
     GEN_INDENT;
     for (size_t i = 0; i < block.num_stmnts; i++) {
-        gen_stmnt(block.stmnts[i]);
-        if (i != block.num_stmnts - 1) genfln("");
+        if (block.stmnts[i]) {
+            gen_stmnt(block.stmnts[i]);
+            genf(";");
+            if (i != block.num_stmnts - 1) genfln("");
+        }
     }
     GEN_UNINDENT;
     genf("}");
@@ -331,14 +334,20 @@ void gen_stmnt_block(BlockStmnt block) {
 void gen_decl_def(Entity* entity);
 
 void gen_stmnt_decl(Stmnt* stmnt) {
+    assert(stmnt->decl_stmnt.decl->type == DECL_VAR);
+    Decl* decl = stmnt->decl_stmnt.decl;
+    genf("%s", type_to_cdecl(decl->var_decl.expr->resolved_type, decl->name));
+    if (decl->var_decl.expr) {
+        genf(" = %s", gen_expr(decl->var_decl.expr));
+    }
 }
 
 void gen_stmnt_return(Stmnt* stmnt) {
     if (stmnt->return_stmnt.expr) {
-        genf("return %s;", gen_expr(stmnt->return_stmnt.expr));
+        genf("return %s", gen_expr(stmnt->return_stmnt.expr));
     }
     else {
-        genf("return;");
+        genf("return");
     }
 }
 
@@ -357,6 +366,7 @@ void gen_stmnt_ifelse(Stmnt* stmnt) {
 
 void gen_stmnt_switch(Stmnt* stmnt) {
     genf("switch (%s) {", gen_expr(stmnt->switch_stmnt.switch_expr));
+    genfln("");
     for (size_t i = 0; i < stmnt->switch_stmnt.num_case_blocks; i++) {
         genf("case %s: ", gen_expr(stmnt->switch_stmnt.case_blocks[i].case_expr));
         gen_stmnt_block(stmnt->switch_stmnt.case_blocks[i].block);
@@ -376,7 +386,7 @@ void gen_stmnt_while(Stmnt* stmnt) {
 void gen_stmnt_do_while(Stmnt* stmnt) {
     genf("do ");
     gen_stmnt_block(stmnt->while_stmnt.block);
-    genf(" while (%s);", gen_expr(stmnt->while_stmnt.cond));
+    genf(" while (%s)", gen_expr(stmnt->while_stmnt.cond));
 }
 
 void gen_stmnt_for(Stmnt* stmnt) {
@@ -395,26 +405,29 @@ void gen_stmnt_for(Stmnt* stmnt) {
 }
 
 void gen_stmnt_assign(Stmnt* stmnt) {
-    genf("%s %s %s;", gen_expr(stmnt->assign_stmnt.left), gen_op(stmnt->assign_stmnt.op), gen_expr(stmnt->assign_stmnt.right));
+    genf("%s %s %s", gen_expr(stmnt->assign_stmnt.left), gen_op(stmnt->assign_stmnt.op), gen_expr(stmnt->assign_stmnt.right));
 }
 
 void gen_stmnt_init(Stmnt* stmnt) {
-    genf("%s = %s;", type_to_cdecl(stmnt->init_stmnt.right->resolved_type, stmnt->init_stmnt.left->name_expr.name), gen_expr(stmnt->init_stmnt.right));
+    genf("%s = %s", type_to_cdecl(stmnt->init_stmnt.right->resolved_type, stmnt->init_stmnt.left->name_expr.name), gen_expr(stmnt->init_stmnt.right));
 }
 
 void gen_stmnt_break(Stmnt* stmnt) {
-    genf("break;");
+    genf("break");
 }
 
 void gen_stmnt_continue(Stmnt* stmnt) {
-    genf("continue;");
+    genf("continue");
 }
 
 void gen_stmnt_expr(Stmnt* stmnt) {
-    genf("%s;", gen_expr(stmnt->expr_stmnt.expr));
+    genf("%s", gen_expr(stmnt->expr_stmnt.expr));
 }
 
 void gen_stmnt(Stmnt* stmnt) {
+    if (!stmnt) {
+        return;
+    }
     switch (stmnt->type) {
     case STMNT_DECL:
         gen_stmnt_decl(stmnt);
@@ -476,7 +489,6 @@ void gen_decl_def_aggregate(Entity* entity) {
 
 void gen_decl_def_const(Entity* entity) {
     genf("const %s = %s;", type_to_cdecl(entity->type, entity->name), gen_expr(entity->decl->const_decl.expr));
-    // genf("enum { %s = %s };", entity->name, gen_expr(entity->decl->const_decl.expr));
 }
 
 void gen_decl_def_var(Entity* entity) {
@@ -494,7 +506,16 @@ void gen_decl_def_func(Entity* entity) {
     gen_stmnt_block(entity->decl->func_decl.block);
 }
 
+void gen_decl_def_enum_const(Entity* entity) {
+    genf("enum { %s = %d };", entity->name, entity->value);
+}
+
 void gen_decl_def(Entity* entity) {
+    if (entity->e_type == ENTITY_ENUM_CONST) {
+        gen_decl_def_enum_const(entity);
+        genfln("");
+        return;
+    }
     Decl* decl = entity->decl;
     if (decl) {
         switch (decl->type) {
@@ -505,15 +526,19 @@ void gen_decl_def(Entity* entity) {
         case DECL_STRUCT:
         case DECL_UNION: 
             gen_decl_def_aggregate(entity);
+            genfln("");
             break;
         case DECL_CONST:
             gen_decl_def_const(entity);
+            genfln("");
             break;
         case DECL_VAR:
             gen_decl_def_var(entity);
+            genfln("");
             break;
         case DECL_FUNC:
             gen_decl_def_func(entity);
+            genfln("");
             break;
         }
     }
@@ -522,7 +547,6 @@ void gen_decl_def(Entity* entity) {
 void gen_decls_def(void) {
     for (size_t i = 0; i < buf_len(ordered_entities); i++) {
         gen_decl_def(ordered_entities[i]);
-        genfln("");
     }
 }
 

@@ -384,6 +384,7 @@ Stmnt* parse_stmnt_do(void) {
     expect_token('(');
     Expr* cond = parse_expr();
     expect_token(')');
+    expect_token(';');
     return stmnt_while(STMNT_DO_WHILE, cond, block);
 }
 

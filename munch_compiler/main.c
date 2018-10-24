@@ -23,5 +23,7 @@
 #include "test.c"
 
 int main(int argc, char** argv) {
+    //munch_test();
+    //return 0;
     return munch_main(argc, argv);
 }

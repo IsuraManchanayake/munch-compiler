@@ -19,6 +19,7 @@ bool munch_compile_file(const char* path) {
     if (!src) {
         src = " ";
     }
+    src_path = path;
     const char* buf = munch_compile_str(src);
     if (!buf) {
         return false;
@@ -32,8 +33,7 @@ int munch_main(int argc, char** argv) {
         printf("Usage: <source file>");
         return 1;
     }
-    char* path = argv[1];
-    bool status = munch_compile_file(path);
+    bool status = munch_compile_file(argv[1]);
     if(status) {
         puts("Compilation successful\n");
     } else {
@@ -43,7 +43,7 @@ int munch_main(int argc, char** argv) {
 }
 
 void munch_test(void) {
-    if (munch_compile_file("munch_test/test1.mch")) {
+    if (munch_compile_file("munch_test/test1024.mch")) {
         puts("Compilation successful\n");
     }
     else {

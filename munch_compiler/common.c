@@ -186,7 +186,7 @@ char* _buf_printf(char* buf, const char* fmt, ...) {
 #define TODO(x) message(":warning:TODO: " #x)
 
 #define ARENA_ALIGNMENT 8 // must be power of 2
-#define ARENA_BLOCK_SIZE (1 << 10)
+#define ARENA_BLOCK_SIZE (1 << 20)
 
 #define ALIGN_DOWN(n, a) ((n) & ~((a) - 1))
 #define ALIGN_UP(n, a) ALIGN_DOWN((n) + (a) - 1, a)
