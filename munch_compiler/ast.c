@@ -42,7 +42,7 @@ typedef enum TypeSpecType {
 } TypeSpecType;
 
 typedef struct NameTypeSpec {
-	const char* name;
+    const char* name;
 } NameTypeSpec;
 
 typedef struct FuncTypeSpec {
@@ -52,12 +52,12 @@ typedef struct FuncTypeSpec {
 } FuncTypeSpec;
 
 typedef struct ArrayTypeSpec {
-	TypeSpec* base;
-	Expr* size;
+    TypeSpec* base;
+    Expr* size;
 } ArrayTypeSpec;
 
 typedef struct PtrTypeSpec {
-	TypeSpec* base;
+    TypeSpec* base;
 } PtrTypeSpec;
 
 // --------------------------------------------------------
@@ -67,10 +67,10 @@ typedef struct TypeSpec {
     Type* resolved_type;
     SrcLoc loc;
     union {
-		NameTypeSpec name;
-		FuncTypeSpec func;
-		ArrayTypeSpec array;
-		PtrTypeSpec ptr;
+        NameTypeSpec name;
+        FuncTypeSpec func;
+        ArrayTypeSpec array;
+        PtrTypeSpec ptr;
     };
 } TypeSpec;
 
@@ -86,7 +86,7 @@ TypeSpec* typespec_alloc(TypeSpecType type) {
 
 TypeSpec* typespec_name(const char* name) {
     TypeSpec* typespec = typespec_alloc(TYPESPEC_NAME);
-	typespec->name = (NameTypeSpec) { .name=name };
+    typespec->name = (NameTypeSpec) { .name=name };
     return typespec;
 }
 
@@ -98,13 +98,13 @@ TypeSpec* typespec_func(TypeSpec* ret_type, size_t num_params, TypeSpec** params
 
 TypeSpec* typespec_array(TypeSpec* base, Expr* size) {
     TypeSpec* typespec = typespec_alloc(TYPESPEC_ARRAY);
-	typespec->array = (ArrayTypeSpec) {.base=base, .size=size};
+    typespec->array = (ArrayTypeSpec) {.base=base, .size=size};
     return typespec;
 }
 
 TypeSpec* typespec_ptr(TypeSpec* base) {
     TypeSpec* typespec = typespec_alloc(TYPESPEC_PTR);
-	typespec->ptr = (PtrTypeSpec) {.base=base};
+    typespec->ptr = (PtrTypeSpec) {.base=base};
     return typespec;
 }
 
@@ -125,41 +125,41 @@ typedef enum DeclType {
 
 typedef struct EnumItem {
     const char* name;
-	Expr* expr;
+    Expr* expr;
 } EnumItem;
 
 typedef struct EnumDecl {
-	size_t num_enum_items;
-	EnumItem* enum_items;
+    size_t num_enum_items;
+    EnumItem* enum_items;
 } EnumDecl;
 
 typedef struct ConstDecl {
-	Expr* expr;
+    Expr* expr;
 } ConstDecl;
 
 typedef struct VarDecl {
-	TypeSpec* type;
-	Expr* expr;
+    TypeSpec* type;
+    Expr* expr;
 } VarDecl;
 
 typedef struct TypedefDecl {
-	TypeSpec* type;
+    TypeSpec* type;
 } TypedefDecl;
 
 typedef struct AggregateItem {
-	const char* name;
-	TypeSpec* type;
-	Expr* expr;
+    const char* name;
+    TypeSpec* type;
+    Expr* expr;
 } AggregateItem;
 
 typedef struct AggregateDecl {
-	size_t num_aggregate_items;
-	AggregateItem* aggregate_items;
+    size_t num_aggregate_items;
+    AggregateItem* aggregate_items;
 } AggregateDecl;
 
 typedef struct FuncParam {
-	const char* name;
-	TypeSpec* type;
+    const char* name;
+    TypeSpec* type;
 } FuncParam;
 
 typedef struct FuncDecl {
@@ -176,11 +176,11 @@ struct Decl {
     const char* name;
     SrcLoc loc;
     union {
-		EnumDecl enum_decl;
-		AggregateDecl aggregate_decl;
-		ConstDecl const_decl;
-		VarDecl var_decl;
-		TypedefDecl typedef_decl;
+        EnumDecl enum_decl;
+        AggregateDecl aggregate_decl;
+        ConstDecl const_decl;
+        VarDecl var_decl;
+        TypedefDecl typedef_decl;
         FuncDecl func_decl;
     };
 };
@@ -195,55 +195,55 @@ struct DeclSet {
 Decl* decl_alloc(DeclType type, const char* name) {
     Decl* decl = arena_alloc(&ast_arena, sizeof(Decl));
     memset(decl, 0, sizeof(Decl));
-	decl->type = type;
-	decl->name = name;
+    decl->type = type;
+    decl->name = name;
     decl->loc = (SrcLoc) { src_path, line_num };
-	return decl;
+    return decl;
 }
 
 Decl* decl_enum(const char* name, size_t num_enum_items, EnumItem* enum_items) {
-	Decl* decl = decl_alloc(DECL_ENUM, name);
-	decl->enum_decl = (EnumDecl) { .num_enum_items = num_enum_items, .enum_items = _ast_dup(enum_items) };
-	return decl;
+    Decl* decl = decl_alloc(DECL_ENUM, name);
+    decl->enum_decl = (EnumDecl) { .num_enum_items = num_enum_items, .enum_items = _ast_dup(enum_items) };
+    return decl;
 }
 
 Decl* decl_aggregate(DeclType type, const char* name, size_t num_aggregate_items, AggregateItem* aggregate_items) {
-	assert(type == DECL_UNION || type == DECL_STRUCT);
-	Decl* decl = decl_alloc(type, name);
-	decl->aggregate_decl = (AggregateDecl) { 
+    assert(type == DECL_UNION || type == DECL_STRUCT);
+    Decl* decl = decl_alloc(type, name);
+    decl->aggregate_decl = (AggregateDecl) { 
         .num_aggregate_items = num_aggregate_items, 
         .aggregate_items = _ast_dup(aggregate_items) 
     };
-	return decl;
+    return decl;
 }
 
 Decl* decl_const(const char* name, Expr* expr) {
-	Decl* decl = decl_alloc(DECL_CONST, name);
-	decl->const_decl = (ConstDecl) { .expr = expr };
-	return decl;
+    Decl* decl = decl_alloc(DECL_CONST, name);
+    decl->const_decl = (ConstDecl) { .expr = expr };
+    return decl;
 }
 
 Decl* decl_var(const char* name, TypeSpec* type, Expr* expr) {
-	Decl* decl = decl_alloc(DECL_VAR, name);
-	decl->var_decl = (VarDecl) { .type = type, .expr = expr };
-	return decl;
+    Decl* decl = decl_alloc(DECL_VAR, name);
+    decl->var_decl = (VarDecl) { .type = type, .expr = expr };
+    return decl;
 }
 
 Decl* decl_typedef(const char* name, TypeSpec* type) {
-	Decl* decl = decl_alloc(DECL_TYPEDEF, name);
-	decl->typedef_decl = (TypedefDecl) { .type = type };
-	return decl;
+    Decl* decl = decl_alloc(DECL_TYPEDEF, name);
+    decl->typedef_decl = (TypedefDecl) { .type = type };
+    return decl;
 }
 
 Decl* decl_func(const char* name, size_t num_params, FuncParam* params, TypeSpec* ret_type, BlockStmnt block) {
-	Decl* decl = decl_alloc(DECL_FUNC, name);
-	decl->func_decl = (FuncDecl) { 
+    Decl* decl = decl_alloc(DECL_FUNC, name);
+    decl->func_decl = (FuncDecl) { 
         .num_params = num_params, 
         .params = _ast_dup(params), 
         .ret_type = ret_type, 
         .block = block 
     };
-	return decl;
+    return decl;
 }
 
 DeclSet* declset(Decl** decls, size_t num_decls) {
@@ -278,42 +278,42 @@ typedef enum ExprType {
 } ExprType;
 
 typedef struct TernaryExpr {
-	Expr* cond;
-	Expr* left;
-	Expr* right;
+    Expr* cond;
+    Expr* left;
+    Expr* right;
 } TernaryExpr ;
 
 typedef struct BinaryExpr {
-	Expr* left;
-	Expr* right;
-	TokenType op;
+    Expr* left;
+    Expr* right;
+    TokenType op;
 } BinaryExpr;
 
 typedef struct UnaryExpr {
-	Expr* expr;
-	TokenType op;
+    Expr* expr;
+    TokenType op;
 } UnaryExpr;
 
 typedef struct CallExpr {
-	Expr* expr;
-	size_t num_args;
-	Expr** args;
+    Expr* expr;
+    size_t num_args;
+    Expr** args;
 } CallExpr;
 
 typedef struct IntExpr {
-	uint64_t int_val;
+    uint64_t int_val;
 } IntExpr;
 
 typedef struct FloatExpr {
-	double float_val;
+    double float_val;
 } FloatExpr;
 
 typedef struct StrExpr {
-	const char* str_val;
+    const char* str_val;
 } StrExpr;
 
 typedef struct NameExpr {
-	const char* name;
+    const char* name;
 } NameExpr;
 
 typedef enum CompoundItemType {
@@ -332,24 +332,24 @@ typedef struct CompoundItem {
 } CompoundItem;
 
 typedef struct CompoundExpr {
-	TypeSpec* type;
-	size_t num_compound_items;
+    TypeSpec* type;
+    size_t num_compound_items;
     CompoundItem* compound_items;
 } CompoundExpr;
 
 typedef struct CastExpr {
-	Expr* cast_expr;
-	TypeSpec* cast_type;
+    Expr* cast_expr;
+    TypeSpec* cast_type;
 } CastExpr;
 
 typedef struct IndexExpr {
-	Expr* expr;
-	Expr* index;
+    Expr* expr;
+    Expr* index;
 } IndexExpr;
 
 typedef struct FieldExpr {
-	Expr* expr;
-	const char* field;
+    Expr* expr;
+    const char* field;
 } FieldExpr;
 
 typedef struct SizeofExpr {
@@ -364,21 +364,22 @@ typedef struct SizeofExpr {
 struct Expr {
     ExprType type;
     Type* resolved_type;
+    int64_t resolved_value;
     SrcLoc loc;
     union {
-		TernaryExpr ternary_expr;
-		BinaryExpr binary_expr;
-		UnaryExpr pre_unary_expr; // pre inc and dec are included
+        TernaryExpr ternary_expr;
+        BinaryExpr binary_expr;
+        UnaryExpr pre_unary_expr; // pre inc and dec are included
         UnaryExpr post_unary_expr; // only post inc and dec
-		CallExpr call_expr;
-		IntExpr int_expr;
-		FloatExpr float_expr;
-		StrExpr str_expr;
-		NameExpr name_expr;
-		CompoundExpr compound_expr;
-		CastExpr cast_expr;
-		IndexExpr index_expr;
-		FieldExpr field_expr;
+        CallExpr call_expr;
+        IntExpr int_expr;
+        FloatExpr float_expr;
+        StrExpr str_expr;
+        NameExpr name_expr;
+        CompoundExpr compound_expr;
+        CastExpr cast_expr;
+        IndexExpr index_expr;
+        FieldExpr field_expr;
         SizeofExpr sizeof_expr;
     };
 };
@@ -395,74 +396,74 @@ Expr* expr_alloc(ExprType type) {
 
 Expr* expr_int(uint64_t int_val) {
     Expr* expr = expr_alloc(EXPR_INT);
-	expr->int_expr = (IntExpr) {.int_val=int_val};
+    expr->int_expr = (IntExpr) {.int_val=int_val};
     return expr;
 }
 
 Expr* expr_float(double float_val) {
     Expr* expr = expr_alloc(EXPR_FLOAT);
-	expr->float_expr = (FloatExpr) {.float_val=float_val};
+    expr->float_expr = (FloatExpr) {.float_val=float_val};
     return expr;
 }
 
 Expr* expr_str(const char* str_val) {
     Expr* expr = expr_alloc(EXPR_STR);
-	expr->str_expr = (StrExpr) {.str_val=str_val};
+    expr->str_expr = (StrExpr) {.str_val=str_val};
     return expr;
 }
 
 Expr* expr_name(const char* name) {
     Expr* expr = expr_alloc(EXPR_NAME);
-	expr->name_expr = (NameExpr) {.name=name};
+    expr->name_expr = (NameExpr) {.name=name};
     return expr;
 }
 
 Expr* expr_cast(TypeSpec* cast_type, Expr* cast_expr) {
     Expr* expr = expr_alloc(EXPR_CAST);
-	expr->cast_expr = (CastExpr) { .cast_expr=cast_expr, .cast_type=cast_type };
+    expr->cast_expr = (CastExpr) { .cast_expr=cast_expr, .cast_type=cast_type };
     return expr;
 }
 
 Expr* expr_unary(ExprType unary_type, TokenType op, Expr* uexpr) {
     assert(unary_type == EXPR_PRE_UNARY || unary_type == EXPR_POST_UNARY);
-	assert(op == TOKEN_INC || op == TOKEN_DEC || op == '+'
-		|| op == '-' || op == '*' || op == '&' || op == '!' || op == '~');
+    assert(op == TOKEN_INC || op == TOKEN_DEC || op == '+'
+        || op == '-' || op == '*' || op == '&' || op == '!' || op == '~');
     Expr* expr = expr_alloc(unary_type);
-	expr->pre_unary_expr = (UnaryExpr) { .expr=uexpr, .op=op };
+    expr->pre_unary_expr = (UnaryExpr) { .expr=uexpr, .op=op };
     return expr;
 }
 
 Expr* expr_binary(TokenType op, Expr* left, Expr* right) {
-	assert((op >= TOKEN_LOG_AND && op <= TOKEN_GTEQ) || op == '+'
-		|| op == '-' || op == '*' || op == '/'
-		|| op == '%' || op == '<' || op == '>'
-		|| op == '&' || op == '|' || op == '^');
+    assert((op >= TOKEN_LOG_AND && op <= TOKEN_GTEQ) || op == '+'
+        || op == '-' || op == '*' || op == '/'
+        || op == '%' || op == '<' || op == '>'
+        || op == '&' || op == '|' || op == '^');
     Expr* expr = expr_alloc(EXPR_BINARY);
-	expr->binary_expr = (BinaryExpr) { .left=left, .right=right, .op=op };
+    expr->binary_expr = (BinaryExpr) { .left=left, .right=right, .op=op };
     return expr;
 }
 
 Expr* expr_ternary(Expr* cond, Expr* left, Expr* right) {
     Expr* expr = expr_alloc(EXPR_TERNARY);
-	expr->ternary_expr = (TernaryExpr) { .cond=cond, .left=left, .right=right };
+    expr->ternary_expr = (TernaryExpr) { .cond=cond, .left=left, .right=right };
     return expr;
 }
 
 Expr* expr_call(Expr* call_expr, size_t num_args, Expr** args) {
     Expr* expr = expr_alloc(EXPR_CALL);
-	expr->call_expr = (CallExpr) { .expr=call_expr, .num_args=num_args, .args=_ast_dup(args) };
+    expr->call_expr = (CallExpr) { .expr=call_expr, .num_args=num_args, .args=_ast_dup(args) };
     return expr;
 }
 
 Expr* expr_index(Expr* call_expr, Expr* index) {
     Expr* expr = expr_alloc(EXPR_INDEX);
-	expr->index_expr = (IndexExpr) { .expr=call_expr, .index=index };
+    expr->index_expr = (IndexExpr) { .expr=call_expr, .index=index };
     return expr;
 }
 
 Expr* expr_field(Expr* call_expr, const char* field) {
     Expr* expr = expr_alloc(EXPR_FIELD);
-	expr->field_expr = (FieldExpr) { .expr=call_expr, .field=field };
+    expr->field_expr = (FieldExpr) { .expr=call_expr, .field=field };
     return expr;
 }
 
@@ -526,48 +527,48 @@ typedef struct DeclStmnt {
 } DeclStmnt;
 
 typedef struct ElseIfItem {
-	Expr* cond;
+    Expr* cond;
     BlockStmnt block;
 } ElseIfItem;
 
 typedef struct IfElseIfStmnt {
-	Expr* if_cond;
-	BlockStmnt then_block;
-	size_t num_else_ifs;
-	ElseIfItem* else_ifs;
+    Expr* if_cond;
+    BlockStmnt then_block;
+    size_t num_else_ifs;
+    ElseIfItem* else_ifs;
     BlockStmnt else_block;
 } IfElseIfStmnt;
 
 typedef struct CaseBlock {
-	Expr* case_expr;
+    Expr* case_expr;
     BlockStmnt block;
 } CaseBlock;
 
 typedef struct SwitchStmnt {
-	Expr* switch_expr;
-	size_t num_case_blocks;
-	CaseBlock* case_blocks;
+    Expr* switch_expr;
+    size_t num_case_blocks;
+    CaseBlock* case_blocks;
     BlockStmnt default_block;
 } SwitchStmnt;
 
 typedef struct WhileStmnt {
-	Expr* cond;
+    Expr* cond;
     BlockStmnt block;
 } WhileStmnt;
 
 typedef struct ForStmnt {
     size_t num_init;
     Stmnt** init;
-	Expr* cond;
+    Expr* cond;
     size_t num_update;
     Stmnt** update;
-	BlockStmnt block;
+    BlockStmnt block;
 } ForStmnt;
 
 typedef struct AssignStmnt {
-	Expr* left;
-	Expr* right;
-	TokenType op;
+    Expr* left;
+    Expr* right;
+    TokenType op;
 } AssignStmnt;
 
 typedef struct InitStmnt {
@@ -576,7 +577,7 @@ typedef struct InitStmnt {
 } InitStmnt;
 
 typedef struct ReturnStmnt {
-	Expr* expr;
+    Expr* expr;
 } ReturnStmnt;
 
 typedef struct ExprStmnt {
@@ -590,14 +591,14 @@ struct Stmnt {
     SrcLoc loc;
     union {
         DeclStmnt decl_stmnt;
-		IfElseIfStmnt ifelseif_stmnt;
-		SwitchStmnt switch_stmnt;
-		WhileStmnt while_stmnt;
-		ForStmnt for_stmnt;
-		AssignStmnt assign_stmnt;
+        IfElseIfStmnt ifelseif_stmnt;
+        SwitchStmnt switch_stmnt;
+        WhileStmnt while_stmnt;
+        ForStmnt for_stmnt;
+        AssignStmnt assign_stmnt;
         InitStmnt init_stmnt;
-		BlockStmnt block_stmnt;
-		ReturnStmnt return_stmnt;
+        BlockStmnt block_stmnt;
+        ReturnStmnt return_stmnt;
         ExprStmnt expr_stmnt;
     };
 };
@@ -607,9 +608,9 @@ struct Stmnt {
 Stmnt* stmnt_alloc(StmntType type) {
     Stmnt* stmnt = arena_alloc(&ast_arena, sizeof(Stmnt));
     memset(stmnt, 0, sizeof(Stmnt));
-	stmnt->type = type;
+    stmnt->type = type;
     stmnt->loc = (SrcLoc) { src_path, line_num };
-	return stmnt;
+    return stmnt;
 }
 
 Stmnt* stmnt_decl(Decl* decl) {
@@ -619,44 +620,44 @@ Stmnt* stmnt_decl(Decl* decl) {
 }
 
 Stmnt* stmnt_return(Expr* expr) {
-	Stmnt* stmnt = stmnt_alloc(STMNT_RETURN);
-	stmnt->return_stmnt = (ReturnStmnt) { expr };
-	return stmnt;
+    Stmnt* stmnt = stmnt_alloc(STMNT_RETURN);
+    stmnt->return_stmnt = (ReturnStmnt) { expr };
+    return stmnt;
 }
 
 Stmnt* stmnt_ifelseif(Expr* if_cond, BlockStmnt then_block, size_t num_else_ifs, ElseIfItem* else_ifs, BlockStmnt else_block) {
-	Stmnt* stmnt = stmnt_alloc(STMNT_IF_ELSE);
-	stmnt->ifelseif_stmnt = (IfElseIfStmnt) {
-		.if_cond=if_cond, 
-		.then_block= then_block,
-		.num_else_ifs=num_else_ifs,
-		.else_ifs=_ast_dup(else_ifs), 
-		.else_block=else_block
-	};
-	return stmnt;
+    Stmnt* stmnt = stmnt_alloc(STMNT_IF_ELSE);
+    stmnt->ifelseif_stmnt = (IfElseIfStmnt) {
+        .if_cond=if_cond, 
+        .then_block= then_block,
+        .num_else_ifs=num_else_ifs,
+        .else_ifs=_ast_dup(else_ifs), 
+        .else_block=else_block
+    };
+    return stmnt;
 }
 
 Stmnt* stmnt_switch(Expr* switch_expr, size_t num_case_blocks, CaseBlock* case_blocks, BlockStmnt default_block) {
-	Stmnt* stmnt = stmnt_alloc(STMNT_SWITCH);
-	stmnt->switch_stmnt = (SwitchStmnt) { 
-		.switch_expr = switch_expr, 
-		.num_case_blocks = num_case_blocks,
-		.case_blocks = _ast_dup(case_blocks),
-		.default_block = default_block
-	};
-	return stmnt;
+    Stmnt* stmnt = stmnt_alloc(STMNT_SWITCH);
+    stmnt->switch_stmnt = (SwitchStmnt) { 
+        .switch_expr = switch_expr, 
+        .num_case_blocks = num_case_blocks,
+        .case_blocks = _ast_dup(case_blocks),
+        .default_block = default_block
+    };
+    return stmnt;
 }
 
 Stmnt* stmnt_while(StmntType type, Expr* cond, BlockStmnt block) {
-	assert(type == STMNT_WHILE || type == STMNT_DO_WHILE);
-	Stmnt* stmnt = stmnt_alloc(type);
-	stmnt->while_stmnt = (WhileStmnt) { .cond = cond, .block = block };
-	return stmnt;
+    assert(type == STMNT_WHILE || type == STMNT_DO_WHILE);
+    Stmnt* stmnt = stmnt_alloc(type);
+    stmnt->while_stmnt = (WhileStmnt) { .cond = cond, .block = block };
+    return stmnt;
 }
 
 Stmnt* stmnt_for(size_t num_init, Stmnt** init, Expr* cond, size_t num_update, Stmnt** update, BlockStmnt block) {
-	Stmnt* stmnt = stmnt_alloc(STMNT_FOR);
-	stmnt->for_stmnt = (ForStmnt) { 
+    Stmnt* stmnt = stmnt_alloc(STMNT_FOR);
+    stmnt->for_stmnt = (ForStmnt) { 
         .num_init=num_init,
         .init = _ast_dup(init),
         .cond = cond, 
@@ -664,14 +665,14 @@ Stmnt* stmnt_for(size_t num_init, Stmnt** init, Expr* cond, size_t num_update, S
         .update = _ast_dup(update),
         .block = block 
     };
-	return stmnt;
+    return stmnt;
 }
 
 Stmnt* stmnt_assign(Expr* left, Expr* right, TokenType op) {
     assert(is_between(op, TOKEN_ADD_ASSIGN, TOKEN_RSHIFT_ASSIGN) || op == '=');
-	Stmnt* stmnt = stmnt_alloc(STMNT_ASSIGN);
-	stmnt->assign_stmnt = (AssignStmnt) { .left = left, .right = right, .op = op };
-	return stmnt;
+    Stmnt* stmnt = stmnt_alloc(STMNT_ASSIGN);
+    stmnt->assign_stmnt = (AssignStmnt) { .left = left, .right = right, .op = op };
+    return stmnt;
 }
 
 Stmnt* stmnt_init(Expr* left, Expr* right) {
@@ -681,17 +682,17 @@ Stmnt* stmnt_init(Expr* left, Expr* right) {
 }
 
 Stmnt* stmnt_break(void) {
-	return stmnt_alloc(STMNT_BREAK);
+    return stmnt_alloc(STMNT_BREAK);
 }
 
 Stmnt* stmnt_continue(void) {
-	return stmnt_alloc(STMNT_CONTINUE);
+    return stmnt_alloc(STMNT_CONTINUE);
 }
 
 Stmnt* stmnt_block(size_t num_stmnts, Stmnt** stmnts) {
-	Stmnt* stmnt = stmnt_alloc(STMNT_BLOCK);
+    Stmnt* stmnt = stmnt_alloc(STMNT_BLOCK);
     stmnt->block_stmnt = (BlockStmnt) { .num_stmnts = num_stmnts, .stmnts = stmnts };
-	return stmnt;
+    return stmnt;
 }
 
 Stmnt* stmnt_expr(Expr* expr) {

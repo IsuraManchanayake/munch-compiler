@@ -12,6 +12,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "rand.c"
 #include "common.c"
 #include "lex.c"
 #include "ast.c"
@@ -23,6 +24,7 @@
 #include "test.c"
 
 int main(int argc, char** argv) {
+    //run_tests();
     //munch_test();
     //return 0;
     return munch_main(argc, argv);

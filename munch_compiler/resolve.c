@@ -95,53 +95,41 @@ typedef struct CachedFuncType {
     Type* func;
 } CachedFuncType;
 
-CachedPtrType* cached_ptr_types = NULL;
+Map cached_ptr_types;
 
 Type* type_ptr(Type* base) {
-    for (CachedPtrType* it = cached_ptr_types; it != buf_end(cached_ptr_types); it++) {
-        if (it->base == base) {
-            return it->ptr;
-        }
+    Type* ptr_type = map_get(&cached_ptr_types, base);
+    if (ptr_type) {
+        return ptr_type;
     }
     Type* type = type_alloc(TYPE_PTR);
     type->ptr.base = base;
     type->size = PTR_SIZE;
-    buf_push(cached_ptr_types, ((CachedPtrType) {.base = base, .ptr = type}));
+    map_put(&cached_ptr_types, base, type);
     return type;
 }
 
-CachedArrayType* cached_array_types = NULL;
+Map cached_array_types;
 
 Type* type_array(Type* base, size_t size) {
-    for (CachedArrayType* it = cached_array_types; it != buf_end(cached_array_types); it++) {
-        if (it->base == base && it->size == size) {
-            return it->array;
-        }
+    Type* array_type = map_get_ptr_uint(&cached_array_types, (void*)base, size);
+    if (array_type) {
+        return array_type;
     }
     Type* type = type_alloc(TYPE_ARRAY);
     type->array.base = base;
     type->array.size = size;
     type->size = size * base->size;
-    buf_push(cached_array_types, ((CachedArrayType){.base = base, .size = size, .array = type }));
+    map_put_ptr_uint(&cached_array_types, (void*)base, size, type);
     return type;
 }
 
-CachedFuncType* cached_func_types = NULL;
+Map cached_func_types;
 
 Type* type_func(size_t num_params, Type** params, Type* ret) {
-    for (CachedFuncType* it = cached_func_types; it != buf_end(cached_func_types); it++) {
-        if (it->ret == ret && it->num_params == num_params) {
-            bool match = true;
-            for (size_t i = 0; i < num_params; i++) {
-                if (it->params[i] != params[i]) {
-                    match = false;
-                    break;
-                }
-            }
-            if (match) {
-                return it->func;
-            }
-        }
+    Type* func_type = map_get_key_list(&cached_func_types, (void**)params, num_params, ret);
+    if (func_type) {
+        return func_type;
     }
     Type* type = type_alloc(TYPE_FUNC);
     type->func.num_params = num_params;
@@ -149,7 +137,7 @@ Type* type_func(size_t num_params, Type** params, Type* ret) {
     memcpy(type->func.params, params, num_params * sizeof(Type*));
     type->func.ret = ret;
     type->size = PTR_SIZE;
-    buf_push(cached_func_types, ((CachedFuncType) {.num_params = num_params, .params = params, .ret = ret, .func = type }));
+    map_put_key_list(&cached_func_types, (void**)params, num_params, ret, type);
     return type;
 }
 
@@ -214,7 +202,7 @@ typedef struct ResolvedExpr {
     bool is_const;
 } ResolvedExpr;
 
-Entity** global_entities = NULL;
+Map global_entities = { 0 };
 Entity** ordered_entities = NULL;
 
 #define MAX_LOCAL_ENTITIES (1 << 20)
@@ -223,17 +211,14 @@ Entity* local_entities[MAX_LOCAL_ENTITIES];
 Entity** local_entities_end = local_entities;
 
 Entity* get_entity(const char* name) {
-    for (Entity** it = local_entities_end; it != local_entities; it--) {
+    size_t iter = 0;
+    for (Entity** it = local_entities_end; it != local_entities; it--, iter++) {
         Entity* local_entity = it[-1];
         if (local_entity->name == name) {
             return local_entity;
         }
     }
-    for (size_t i = 0; i < buf_len(global_entities); i++) {
-        if (global_entities[i]->name == name) {
-            return global_entities[i];
-        }
-    }
+    return map_get(&global_entities, (char*)name);
     return NULL;
 }
 
@@ -309,10 +294,10 @@ Entity* install_decl(Decl* decl) {
                 enum_entity->decl = decl_const(enum_item.name, expr_binary('+', expr_int(1), prev_enum_name));
             }
             enum_entity->type = type_int;
-            buf_push(global_entities, enum_entity);
+            map_put(&global_entities, (char*)enum_entity->name, enum_entity);
         }
     }
-    buf_push(global_entities, entity);
+    map_put(&global_entities, (char*)entity->name, entity);
     return entity;
 }
 
@@ -332,7 +317,10 @@ Entity* built_in_type(Type* type, const char* name) {
     return entity;
 }
 
-#define _BUILT_IN_TYPE(t) buf_push(global_entities, built_in_type(type_ ## t, #t));
+#define _BUILT_IN_TYPE(t) \
+    do { \
+        map_put(&global_entities, (char*)str_intern(#t), built_in_type(type_ ## t, #t)); \
+    } while (0)
 
 void install_built_in_types(void) {
     _BUILT_IN_TYPE(void);
@@ -353,7 +341,10 @@ Entity* built_in_const(Type* type, const char* name, Expr* const_expr) {
     return entity;
 }
 
-#define _BUILT_IN_CONST(t, n, v) buf_push(global_entities, built_in_const(type_ ## t, n, expr_ ## t(v)))
+#define _BUILT_IN_CONST(t, n, v) \
+    do { \
+        map_put(&global_entities, (char*)n, (Entity*)built_in_const(type_ ## t, n, expr_## t(v))); \
+    } while(0)
 
 void install_built_in_consts(void) {
     _BUILT_IN_CONST(int, kwrd_true, 1);
@@ -464,6 +455,9 @@ ResolvedExpr resolve_expr(Expr* expr, Type* expected_type) {
         assert(0);
     }
     expr->resolved_type = r_expr.type;
+    if (r_expr.type == type_int && r_expr.is_const) {
+        expr->resolved_value = r_expr.value;
+    }
     return r_expr;
 }
 
@@ -830,19 +824,27 @@ Type* resolve_typespec_array(TypeSpec* typespec);
 Type* resolve_typespec_ptr(TypeSpec* typespec);
 
 Type* resolve_typespec(TypeSpec* typespec) {
+    Type* type = NULL;
     switch (typespec->type) {
     case TYPESPEC_NAME:
-        return resolve_typespec_name(typespec);
+        type = resolve_typespec_name(typespec);
+        break;
     case TYPESPEC_FUNC:
-        return resolve_typespec_func(typespec);
+        type = resolve_typespec_func(typespec);
+        break;
     case TYPESPEC_ARRAY:
-        return resolve_typespec_array(typespec);
+        type = resolve_typespec_array(typespec);
+        break;
     case TYPESPEC_PTR:
-        return resolve_typespec_ptr(typespec);
+        type = resolve_typespec_ptr(typespec);
+        break;
     default:
         assert(0);
     }
-    return NULL;
+    if (type) {
+        complete_type(type);
+    }
+    return type;
 }
 
 Type* resolve_typespec_name(TypeSpec* typespec) {
@@ -940,7 +942,7 @@ void resolve_entity(Entity* entity) {
     else if (entity->state == ENTITY_STATE_UNRESOVLED) {
         entity->state = ENTITY_STATE_RESOLVING;
         switch (entity->e_type) {
-        case ENTITY_TYPE:
+        case ENTITY_TYPE: // typedef only
             resolve_entity_type(entity);
             break;
         case ENTITY_VAR:
@@ -1154,22 +1156,24 @@ void resolve_stmnt(Stmnt* stmnt, Type* ret_type) {
 }
 
 void resolve_stmnt_block(BlockStmnt block, Type* ret_type) {
-    Entity** local_sym = enter_scope();
+    Entity** local_entity = enter_scope();
     for (size_t i = 0; i < block.num_stmnts; i++) {
         resolve_stmnt(block.stmnts[i], ret_type);
     }
-    leave_scope(local_sym);
+    leave_scope(local_entity);
 }
 
 void resolve_func(Entity* entity) {
     assert(entity->e_type == ENTITY_FUNC);
     Decl* decl = entity->decl;
+    Entity** local_entity = enter_scope();
     for (size_t i = 0; i < decl->func_decl.num_params; i++) {
         Entity* param = entity_local_var(decl->func_decl.params[i].name);
         param->type = resolve_typespec(decl->func_decl.params[i].type);
         push_local_entity(param);
     }
     resolve_stmnt_block(decl->func_decl.block, resolve_typespec(decl->func_decl.ret_type));
+    leave_scope(local_entity);
 }
 
 void complete_entity(Entity* entity) {
@@ -1183,8 +1187,10 @@ void complete_entity(Entity* entity) {
 }
 
 void complete_entities(void) {
-    for (Entity** it = global_entities; it != buf_end(global_entities); it++) {
-        complete_entity(*it);
+    for (KeyValPair* it = global_entities.pairs; it != global_entities.pairs + global_entities.cap; it++) {
+        if (it->val) {
+            complete_entity(it->val);
+        }
     }
 }
 

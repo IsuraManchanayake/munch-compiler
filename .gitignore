@@ -1,6 +1,7 @@
 .vs
 .vscode
 Debug
+Release
 x64
 munch_compiler/Debug
 munch_compiler/x64
@@ -11,6 +12,7 @@ munch_compiler/x64
 
 *_output.c
 *.exe
+*.stackdump
 *.o
 
 */munch_test/*.c

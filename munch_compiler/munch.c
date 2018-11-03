@@ -29,7 +29,7 @@ bool munch_compile_file(const char* path) {
 }
 
 int munch_main(int argc, char** argv) {
-    if(argc < 2) {
+    if(argc != 2) {
         printf("Usage: <source file>");
         return 1;
     }
@@ -39,6 +39,13 @@ int munch_main(int argc, char** argv) {
     } else {
         puts("Compilation failed\n");
     }
+    printf("Collisions: %zu\n", collisions);
+    printf("Map collisions: %zu\n", map_collisions);
+    printf("Max probing   : %zu\n", max_probing);
+    printf("Avg probing   : %.2f\n", (map_collisions + 0.0f) / map_put_n);
+    printf("Intern map len: %zu\n", intern_map.len);
+    printf("Intern map cap: %zu\n", intern_map.cap);
+    printf("Intern arena size: %zu\n", ARENA_BLOCK_SIZE * buf_len(str_arena.blocks));
     return status;
 }
 

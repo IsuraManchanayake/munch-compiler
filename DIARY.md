@@ -1,5 +1,19 @@
 # Diary
 
+## 4th November 2018 2 AM
+
+- all linear searches were replaced by hash maps (fnv-1a for both single and multiple data blocks with quadratic probing)
+    - string interning
+    - global entity table
+    - type tables which used hash consing
+- 0.5 secs for the previous 2MB source compilation
+- 30 secs for 41 MB source
+- resolved constant values are used in constant decl C code generation instead of whole expressions
+- forgotten typedefs are added to C code generation
+- function entities are added to bottom of definitions in C code generation due to possible local entity resolving errors
+- rand64 using 64 bit Mersenne's twister is created initially for hash generation which possibly be removed in a later stage
+- types are completed after resolving them  
+
 ## 25 October 2018 12 AM
 
 - 2 MB source compilation as a torture test is added (elapsed time 6-7 seconds when compiled with -O3) - performance can be further increased by using hashing and better data structures (TODO)

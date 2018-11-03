@@ -186,7 +186,7 @@ char* _buf_printf(char* buf, const char* fmt, ...) {
 #define TODO(x) message(":warning:TODO: " #x)
 
 #define ARENA_ALIGNMENT 8 // must be power of 2
-#define ARENA_BLOCK_SIZE (1 << 20)
+#define ARENA_BLOCK_SIZE (1 << 10)
 
 #define ALIGN_DOWN(n, a) ((n) & ~((a) - 1))
 #define ALIGN_UP(n, a) ALIGN_DOWN((n) + (a) - 1, a)
@@ -229,24 +229,168 @@ void arena_free(Arena* arena) {
 #undef ALIGN_PTR_UP
 #undef ALIGN_PTR_DOWN
 
+typedef struct KeyValPair {
+    void* key;
+    void* val;
+    uint64_t hash;
+} KeyValPair;
+
+typedef struct Map {
+    KeyValPair* pairs;
+    size_t len;
+    size_t cap;
+} Map;
+
+uint64_t ptr_hash(void* ptr) {
+    uint64_t x = (uint64_t)ptr;
+    x ^= 0xcbf29ce484222325;
+    x *= 1099511628211;
+    return x;
+}
+
+void* map_get_hashed(Map* map, void* key, uint64_t hash) {
+    if (!key || !map->cap) {
+        return NULL;
+    }
+    for (size_t i = (size_t)(hash % map->cap), k = 0; k < map->cap; k++, i = (i + k * k) % map->cap) {
+        if (map->pairs[i].key == key) {
+            return map->pairs[i].val;
+        }
+        else if (!map->pairs[i].key) {
+            return NULL;
+        }
+    }
+    return NULL;
+}
+
+void* map_get(Map* map, void* key) {
+    return map_get_hashed(map, key, ptr_hash(key));
+}
+
+void* map_get_key_list(Map* map, void** keys, size_t num_keys, void* opt_key) {
+    uint64_t hash = 14695981039346656037ull;
+    for (size_t i = 0; i < num_keys; i++) {
+        hash ^= ptr_hash(keys[i]);
+        hash *= 1099511628211;
+    }
+    hash ^= ptr_hash(opt_key);
+    hash *= 1099511628211;
+    return map_get(map, (void*)hash);
+}
+
+void* map_get_ptr_uint(Map* map, void* key, size_t num) {
+    uint64_t hash = 14695981039346656037ull;
+    hash ^= ptr_hash(key);
+    hash *= 1099511628211;
+    hash ^= ptr_hash((void*)num);
+    hash *= 1099511628211;
+    return map_get_hashed(map, (void*)hash, hash);
+}
+
+size_t map_collisions = 0;
+size_t max_probing = 0;
+size_t map_put_n = 0;
+void map_put_hashed(Map* map, void* key, void* val, uint64_t hash);
+
+void map_grow(Map* map) {
+    size_t new_cap = max(1 << 4, map->cap << 1);
+    KeyValPair* key_vals = xcalloc(new_cap, sizeof(KeyValPair));
+    Map new_map = { .pairs = key_vals, .cap = new_cap };
+    for (size_t i = 0; i < map->cap; i++) {
+        if (map->pairs[i].key) {
+            map_put_hashed(&new_map, map->pairs[i].key, map->pairs[i].val, map->pairs[i].hash);
+        }
+    }
+    free(map->pairs);
+    *map = new_map;
+}
+
+void map_put_hashed(Map* map, void* key, void* val, uint64_t hash) {
+    if (map->len >= map->cap >> 1) {
+        map_grow(map);
+    }
+    size_t iter = 0;
+    map_put_n++;
+    for (size_t i = (size_t)(hash % map->cap), j = 1;; i = (i + j * j) % map->cap, j++, iter++) {
+        if (!map->pairs[i].key) {
+            map->pairs[i].val = val;
+            map->pairs[i].key = key;
+            map->pairs[i].hash = hash;
+            map->len++;
+            return;
+        }
+        else if(map->pairs[i].key == key){
+            map->pairs[i].val = val;
+            map->pairs[i].hash = hash;
+            return;
+        }
+        map_collisions++;
+        max_probing = max(max_probing, iter);
+    }
+}
+
+void map_put(Map* map, void* key, void* val) {
+    map_put_hashed(map, key, val, ptr_hash(key));
+}
+
+void map_put_key_list(Map* map, void** keys, size_t num_keys, void* opt_key, void* val) {
+    uint64_t hash = 14695981039346656037ull;
+    for (size_t i = 0; i < num_keys; i++) {
+        hash ^= ptr_hash(keys[i]);
+        hash *= 1099511628211;
+    }
+    hash ^= ptr_hash(opt_key);
+    hash *= 1099511628211;
+    map_put_hashed(map, (void*)hash, val, hash);
+}
+
+void map_put_ptr_uint(Map* map, void* key, size_t num, void* val) {
+    uint64_t hash = 14695981039346656037ull;
+    hash ^= ptr_hash(key);
+    hash *= 1099511628211;
+    hash ^= ptr_hash((void*)num);
+    hash *= 1099511628211;
+    map_put_hashed(map, (void*)hash, val, hash);
+}
+
+uint64_t str_hash(const char* str, size_t len) {
+    // fnv-1a
+    uint64_t hash = 14695981039346656037ull;
+    for (size_t i = 0; i < len; i++) {
+        hash ^= str[i];
+        hash *= 1099511628211;
+    }
+    return hash;
+}
+
 typedef struct InternStr {
     size_t len;
-    const char* str;
+    struct InternStr* next;
+    char str[];
 } InternStr;
 
-InternStr* interns;
+//InternStr* interns;
+Map intern_map = { 0 };
 Arena str_arena;
+size_t collisions = 0;
 
-const char* str_intern_range(const char* start, const char* end) {
+char* str_intern_range(const char* start, const char* end) {
     size_t len = end - start;
-    for (size_t i = 0; i < buf_len(interns); i++)
-        if (interns[i].len == len && strncmp(interns[i].str, start, len) == 0)
-            return interns[i].str;
-    char* str = arena_alloc(&str_arena, len + 1);
-    memcpy(str, start, len);
-    str[len] = 0;
-    buf_push(interns, ((InternStr){len, str}));
-    return str;
+    uint64_t hash = str_hash(start, len) | 1;
+    InternStr* intern = map_get_hashed(&intern_map, (void*)hash, hash);
+    for (InternStr* it = intern; it; it = it->next) {
+        if (it->len == len && strncmp(it->str, start, len) == 0) {
+            return it->str;
+        }
+    }
+    InternStr* new_intern = arena_alloc(&str_arena, offsetof(InternStr, str) + len + 1);
+    memcpy(new_intern->str, start, len);
+    new_intern->str[len] = 0;
+    new_intern->len = len;
+    new_intern->next = intern;
+    if (intern) collisions++;
+    map_put_hashed(&intern_map, (void*)hash, new_intern, hash);
+    return new_intern->str;
 }
 
 const char* str_intern(const char* str) {
@@ -301,6 +445,19 @@ void ext_change_test(void) {
     printf("%s\n", buf);
 }
 
+void map_test(void) {
+    Map map = { 0 };
+    size_t N = 1024;
+    for (size_t i = 1; i < N; i++) {
+        map_put(&map, (void*)i, (void*)(i + 1));
+    }
+    for (size_t i = 1; i < N; i++) {
+        void* val = map_get(&map, (void*)i);
+        assert(val == (void*)(i + 1));
+    }
+    assert(!map_get(&map, (void*)(N + 100)));
+}
+
 void common_test(void) {
     printf("----- common.c -----\n");
     buf_test();
@@ -308,4 +465,5 @@ void common_test(void) {
     intern_str_test();
     io_test();
     ext_change_test();
+    map_test();
 }

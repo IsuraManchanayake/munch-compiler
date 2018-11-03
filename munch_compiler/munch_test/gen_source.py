@@ -25,15 +25,17 @@ union IntOrPtr(?) {
     p: int*;
 }
 
-const xx(?) = 42
+const xx(?) = 1 + (?) * (?)
 var zero(?): V(?) = {x = 0, y = 0}
 var one(?) = (:V(?)) {x = 1, y = 1}
 var zero_(?): V(?) = {x = 0}
 var basis(?): V(?)[2] = {{0, cast(int, 1.0)}, {1, 0}}
+var vv(?): V(?) = {0}
 
-typedef T1(?) = V(?)*[sizeof(:V(?))]
-typedef T2(?) = S(?)*
+typedef T1_(?) = V(?)*[sizeof(:V(?))]
+typedef T2_(?) = S(?)*
 const yy(?) = sizeof(vec_add(?)(zero(?), one(?)))
+const zz(?) = (1 + 2 << 3 + 4 % 5 - 6 & 7 + 8 * 9 * (?)) / (-10)
 
 struct S(?) {
     i: int;
@@ -157,7 +159,7 @@ func is_prime(?)(n: int): int {
 
 '''
 
-N = 1 << 10
+N = 1 << 14
 with open('test{}.mch'.format(N), 'w') as out_f:
     for i in range(N):
         out_f.write(source.replace('(?)', str(i)))

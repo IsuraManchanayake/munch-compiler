@@ -108,6 +108,9 @@ void gen_forward_decl(Entity* entity) {
     case DECL_FUNC:
         genfln("%s;", gen_func_head(decl));
         break;
+    case DECL_TYPEDEF:
+        genfln("typedef %s;", type_to_cdecl(entity->type, decl->name));
+        break;
     default:
         break;
     }
@@ -488,7 +491,12 @@ void gen_decl_def_aggregate(Entity* entity) {
 }
 
 void gen_decl_def_const(Entity* entity) {
-    genf("const %s = %s;", type_to_cdecl(entity->type, entity->name), gen_expr(entity->decl->const_decl.expr));
+    if (entity->type == type_int) {
+        genf("const %s = %d;", type_to_cdecl(entity->type, entity->name), entity->value);
+    }
+    else {
+        genf("const %s = %s;", type_to_cdecl(entity->type, entity->name), gen_expr(entity->decl->const_decl.expr));
+    }
 }
 
 void gen_decl_def_var(Entity* entity) {
@@ -545,8 +553,17 @@ void gen_decl_def(Entity* entity) {
 }
 
 void gen_decls_def(void) {
+    Entity** func_entities = NULL;
     for (size_t i = 0; i < buf_len(ordered_entities); i++) {
-        gen_decl_def(ordered_entities[i]);
+        if (ordered_entities[i]->e_type == ENTITY_FUNC) {
+            buf_push(func_entities, ordered_entities[i]);
+        }
+        else {
+            gen_decl_def(ordered_entities[i]);
+        }
+    }
+    for (size_t i = 0; i < buf_len(func_entities); i++) {
+        gen_decl_def(func_entities[i]);
     }
 }
 

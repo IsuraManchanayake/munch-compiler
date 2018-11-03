@@ -30,8 +30,8 @@ const char* last_kwrd;
 #define _INIT_KEYWORD(k) kwrd_##k = str_intern(#k); buf_push(keywords, kwrd_##k)
 
 void init_keywords(void) {
-    static bool keyword_inited = false;
-    if (keyword_inited) {
+    static bool keywords_inited = false;
+    if (keywords_inited) {
         return;
     }
     _INIT_KEYWORD(if);
@@ -60,7 +60,7 @@ void init_keywords(void) {
     _INIT_KEYWORD(PI);
     first_kwrd = kwrd_if;
     last_kwrd = kwrd_PI;
-    keyword_inited = true;
+    keywords_inited = true;
 }
 
 #undef _INIT_KEYWORD
