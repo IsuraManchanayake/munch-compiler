@@ -175,45 +175,45 @@ char* gen_op(TokenType op) {
     }
 }
 
-char* gen_expr(Expr* expr);
-char* gen_expr_core(Expr* expr, bool type_expected);
+char* gen_expr_ff(Expr* expr, bool force_fold);
+char* gen_expr_core(Expr* expr, bool type_expected, bool force_fold);
 void gen_stmnt(Stmnt* stmnt);
 
-char* gen_expr_ternary(Expr* expr) {
-    return strf("(%s) ? (%s) : (%s)", gen_expr(expr->ternary_expr.cond), gen_expr(expr->ternary_expr.left), gen_expr(expr->ternary_expr.right));
+char* gen_expr_ternary(Expr* expr, bool force_fold) {
+    return strf("(%s) ? (%s) : (%s)", gen_expr_ff(expr->ternary_expr.cond, force_fold), gen_expr_ff(expr->ternary_expr.left, force_fold), gen_expr_ff(expr->ternary_expr.right, force_fold));
 }
 
-char* gen_expr_binary(Expr* expr) {
-    return strf("(%s) %s (%s)", gen_expr(expr->binary_expr.left), gen_op(expr->binary_expr.op), gen_expr(expr->binary_expr.right));
+char* gen_expr_binary(Expr* expr, bool force_fold) {
+    return strf("(%s) %s (%s)", gen_expr_ff(expr->binary_expr.left, force_fold), gen_op(expr->binary_expr.op), gen_expr_ff(expr->binary_expr.right, force_fold));
 }
 
-char* gen_expr_pre_unary(Expr* expr) {
-    return strf("%s(%s)", gen_op(expr->pre_unary_expr.op), gen_expr(expr->pre_unary_expr.expr));
+char* gen_expr_pre_unary(Expr* expr, bool force_fold) {
+    return strf("%s(%s)", gen_op(expr->pre_unary_expr.op), gen_expr_ff(expr->pre_unary_expr.expr, force_fold));
 }
 
-char* gen_expr_post_unary(Expr* expr) {
-    return strf("(%s)%s", gen_expr(expr->post_unary_expr.expr), gen_op(expr->post_unary_expr.op));
+char* gen_expr_post_unary(Expr* expr, bool force_fold) {
+    return strf("(%s)%s", gen_expr_ff(expr->post_unary_expr.expr, force_fold), gen_op(expr->post_unary_expr.op));
 }
 
-char* gen_expr_call(Expr* expr) {
+char* gen_expr_call(Expr* expr, bool force_fold) {
     char* buf = NULL;
-    buf_printf(buf, "(%s)(", gen_expr(expr->call_expr.expr));
+    buf_printf(buf, "(%s)(", gen_expr_ff(expr->call_expr.expr, force_fold));
     for (size_t i = 0; i < expr->call_expr.num_args; i++) {
-        buf_printf(buf, i == expr->call_expr.num_args - 1 ? "%s" : "%s, ", gen_expr(expr->call_expr.args[i]));
+        buf_printf(buf, i == expr->call_expr.num_args - 1 ? "%s" : "%s, ", gen_expr_ff(expr->call_expr.args[i], force_fold));
     }
     buf_printf(buf, ")");
     return buf;
 }
 
-char* gen_expr_int(Expr* expr) {
+char* gen_expr_int(Expr* expr, bool force_fold) {
     return strf("%d", expr->int_expr.int_val);
 }
 
-char* gen_expr_float(Expr* expr) {
+char* gen_expr_float(Expr* expr, bool force_fold) {
     return strf("%f", expr->float_expr.float_val);
 }
 
-char* gen_expr_str(Expr* expr) {
+char* gen_expr_str(Expr* expr, bool force_fold) {
     char* buf = NULL;
     buf_printf(buf, "\"");
     for(size_t i = 0, s = strlen(expr->str_expr.str_val); i < s; i++) {
@@ -227,12 +227,29 @@ char* gen_expr_str(Expr* expr) {
     return buf;
 }
 
-char* gen_expr_name(Expr* expr) {
+char* gen_expr_name(Expr* expr, bool force_fold) {
+    if (force_fold) {
+        Decl* decl = get_entity(expr->name_expr.name)->decl;
+        Expr* decl_expr = NULL;
+        if (decl->type == DECL_VAR) {
+            decl_expr = decl->var_decl.expr;
+        }
+        else if (decl->type == DECL_CONST) {
+            decl_expr = decl->const_decl.expr;
+        }
+        else {
+            assert(0);
+        }
+        return gen_expr_ff(decl_expr, true);
+    }
     return strf("%s", expr->name_expr.name);
 }
 
-char* gen_expr_compound(Expr* expr, bool type_expected) {
+char* gen_expr_compound(Expr* expr, bool type_expected, bool force_fold) {
     char* buf = NULL;
+    if (force_fold) {
+        type_expected = false;
+    }
     if (type_expected) {
         buf_printf(buf, "(%s) ", type_to_cdecl(expr->resolved_type, ""));
     }
@@ -241,13 +258,13 @@ char* gen_expr_compound(Expr* expr, bool type_expected) {
         CompoundItem item = expr->compound_expr.compound_items[i];
         switch (item.type) {
         case COMPOUND_DEFAULT:
-            buf_printf(buf, "%s", gen_expr_core(item.value, type_expected));
+            buf_printf(buf, "%s", gen_expr_core(item.value, type_expected, force_fold));
             break;
         case COMPOUND_INDEX:
-            buf_printf(buf, "[%s] = %s", gen_expr(item.index), gen_expr_core(item.value, type_expected));
+            buf_printf(buf, "[%s] = %s", gen_expr_ff(item.index, force_fold), gen_expr_core(item.value, type_expected, force_fold));
             break;
         case COMPOUND_NAME:
-            buf_printf(buf, ".%s = %s", item.name, gen_expr_core(item.value, type_expected));
+            buf_printf(buf, ".%s = %s", item.name, gen_expr_core(item.value, type_expected, force_fold));
             break;
         default:
             assert(0);
@@ -258,66 +275,73 @@ char* gen_expr_compound(Expr* expr, bool type_expected) {
     return buf;
 }
 
-char* gen_expr_cast(Expr* expr) {
-    return strf("(%s)(%s)", type_to_cdecl(expr->cast_expr.cast_type->resolved_type, ""), gen_expr(expr->cast_expr.cast_expr));
+char* gen_expr_cast(Expr* expr, bool force_fold) {
+    return strf("(%s)(%s)", type_to_cdecl(expr->cast_expr.cast_type->resolved_type, ""), gen_expr_ff(expr->cast_expr.cast_expr, force_fold));
 }
 
-char* gen_expr_index(Expr* expr) {
-    return strf("(%s)[%s]", gen_expr(expr->index_expr.expr), gen_expr(expr->index_expr.index));
+char* gen_expr_index(Expr* expr, bool force_fold) {
+    return strf("(%s)[%s]", gen_expr_ff(expr->index_expr.expr, force_fold), gen_expr_ff(expr->index_expr.index, force_fold));
 }
 
-char* gen_expr_field(Expr* expr) {
-    return strf("(%s).%s", gen_expr(expr->field_expr.expr), expr->field_expr.field);
+char* gen_expr_field(Expr* expr, bool force_fold) {
+    return strf("(%s).%s", gen_expr_ff(expr->field_expr.expr, force_fold), expr->field_expr.field);
 }
 
-char* gen_expr_sizeof_type(Expr* expr) {
+char* gen_expr_sizeof_type(Expr* expr, bool force_fold) {
     return strf("sizeof(%s)", type_to_cdecl(expr->sizeof_expr.type->resolved_type, ""));
 }
 
-char* gen_expr_sizeof_expr(Expr* expr) {
-    return strf("sizeof(%s)", gen_expr(expr->sizeof_expr.expr));
+char* gen_expr_sizeof_expr(Expr* expr, bool force_fold) {
+    return strf("sizeof(%s)", gen_expr_ff(expr->sizeof_expr.expr, force_fold));
 }
 
-char* gen_expr_core(Expr* expr, bool type_expected) {
+char* gen_expr_core(Expr* expr, bool type_expected, bool force_fold) {
+    if (expr->is_folded && expr->resolved_type == type_int) {
+        return strf("%d", expr->resolved_value);
+    }
     switch (expr->type) {
     case EXPR_TERNARY:
-        return gen_expr_ternary(expr);
+        return gen_expr_ternary(expr, force_fold);
     case EXPR_BINARY:
-        return gen_expr_binary(expr);
+        return gen_expr_binary(expr, force_fold);
     case EXPR_PRE_UNARY:
-        return gen_expr_pre_unary(expr);
+        return gen_expr_pre_unary(expr, force_fold);
     case EXPR_POST_UNARY:
-        return gen_expr_post_unary(expr);
+        return gen_expr_post_unary(expr, force_fold);
     case EXPR_CALL: 
-        return gen_expr_call(expr);
+        return gen_expr_call(expr, force_fold);
     case EXPR_INT:
-        return gen_expr_int(expr);
+        return gen_expr_int(expr, force_fold);
     case EXPR_FLOAT:
-        return gen_expr_float(expr);
+        return gen_expr_float(expr, force_fold);
     case EXPR_STR:
-        return gen_expr_str(expr);
+        return gen_expr_str(expr, force_fold);
     case EXPR_NAME:
-        return gen_expr_name(expr);
+        return gen_expr_name(expr, force_fold);
     case EXPR_COMPOUND:
-        return gen_expr_compound(expr, type_expected);
+        return gen_expr_compound(expr, type_expected, force_fold);
     case EXPR_CAST:
-        return gen_expr_cast(expr);
+        return gen_expr_cast(expr, force_fold);
     case EXPR_INDEX:
-        return gen_expr_index(expr);
+        return gen_expr_index(expr, force_fold);
     case EXPR_FIELD:
-        return gen_expr_field(expr);
+        return gen_expr_field(expr, force_fold);
     case EXPR_SIZEOF_TYPE:
-        return gen_expr_sizeof_type(expr);
+        return gen_expr_sizeof_type(expr, force_fold);
     case EXPR_SIZEOF_EXPR:
-        return gen_expr_sizeof_expr(expr);
+        return gen_expr_sizeof_expr(expr, force_fold);
     default:
         assert(0);
         return NULL;
     }
 }
 
+char* gen_expr_ff(Expr* expr, bool force_fold) {
+    return gen_expr_core(expr, true, force_fold);
+}
+
 char* gen_expr(Expr* expr) {
-    return gen_expr_core(expr, true);
+    return gen_expr_core(expr, true, false);
 }
 
 void gen_stmnt_block(BlockStmnt block) {
@@ -502,7 +526,7 @@ void gen_decl_def_const(Entity* entity) {
 void gen_decl_def_var(Entity* entity) {
     Decl* decl = entity->decl;
     if (decl->var_decl.expr) {
-        genf("%s = %s;", type_to_cdecl(entity->type, entity->name), gen_expr_core(decl->var_decl.expr, false ));
+        genf("%s = %s;", type_to_cdecl(entity->type, entity->name), gen_expr_core(decl->var_decl.expr, false, true));
     }
     else {
         genf("%s;", type_to_cdecl(entity->type, entity->name));

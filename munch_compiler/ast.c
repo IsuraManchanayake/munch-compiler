@@ -365,6 +365,7 @@ struct Expr {
     ExprType type;
     Type* resolved_type;
     int64_t resolved_value;
+    bool is_folded;
     SrcLoc loc;
     union {
         TernaryExpr ternary_expr;
@@ -487,6 +488,10 @@ Expr* expr_compound(TypeSpec* type, size_t num_compound_items, CompoundItem* com
         .compound_items = _ast_dup(compound_items) 
     };
     return expr;
+}
+
+Expr* default_expr_compound(void) {
+    return expr_compound(NULL, 1, (CompoundItem[1]) { {.type = COMPOUND_DEFAULT, .value = expr_int(0)} });
 }
 
 Expr* expr_sizeof_type(TypeSpec* s_type) {

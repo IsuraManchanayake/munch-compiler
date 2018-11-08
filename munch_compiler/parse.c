@@ -600,7 +600,7 @@ Decl* parse_decl_var(void) {
         if (match_token('=')) {
             return decl_var(name, type, parse_expr());
         }
-        return decl_var(name, type, NULL);
+        return decl_var(name, type, default_expr_compound());
     }
     else if (match_token('=')) {
         return decl_var(name, NULL, parse_expr());

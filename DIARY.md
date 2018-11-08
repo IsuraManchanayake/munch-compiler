@@ -1,8 +1,14 @@
 # Diary
 
+## 9th November 2018 1 AM
+
+- non trivial constant folding and the bug of var declaration expressions are fixed at the same time.
+- non const expressions for variable declarations are not allowed at the global level by the C compiler
+- therefore, foldable arithmetic expressions are evaluated and symbols of compound expressions are simply replaced by their definitions (only var and const) at the C code generation stage.
+
 ## 4th November 2018 2 AM
 
-- all linear searches were replaced by hash maps (fnv-1a for both single and multiple data blocks with quadratic probing)
+- all linear searches are replaced by hash maps (fnv-1a for both single and multiple data blocks with quadratic probing)
     - string interning
     - global entity table
     - type tables which used hash consing
@@ -11,6 +17,7 @@
 - resolved constant values are used in constant decl C code generation instead of whole expressions
 - forgotten typedefs are added to C code generation
 - function entities are added to bottom of definitions in C code generation due to possible local entity resolving errors
+- a major bug in scope of local parameters is fixed
 - rand64 using 64 bit Mersenne's twister is created initially for hash generation which possibly be removed in a later stage
 - types are completed after resolving them  
 

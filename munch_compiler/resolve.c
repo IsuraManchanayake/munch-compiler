@@ -192,6 +192,7 @@ struct Entity {
     Decl* decl;
     Type* type;
     int64_t value;
+    bool is_folded;
     SrcLoc loc;
 };
 
@@ -200,6 +201,7 @@ typedef struct ResolvedExpr {
     Type* type;
     bool is_lvalue;
     bool is_const;
+    bool is_folded;
 } ResolvedExpr;
 
 Map global_entities = { 0 };
@@ -364,16 +366,16 @@ ResolvedExpr resolve_name(const char* name) {
     }
     resolve_entity(entity);
     if (entity->e_type == ENTITY_VAR) {
-        return (ResolvedExpr) { .type = entity->type, .is_lvalue = true, .is_const = false };
+        return (ResolvedExpr) { .value = entity->value, .type = entity->type, .is_lvalue = true, .is_const = false, .is_folded = entity->is_folded };
     }
     else if (entity->e_type == ENTITY_CONST || entity->e_type == ENTITY_ENUM_CONST) {
-        return (ResolvedExpr) { .value = entity->value, .type = entity->type, .is_lvalue = true, .is_const = true };
+        return (ResolvedExpr) { .value = entity->value, .type = entity->type, .is_lvalue = false, .is_const = true, .is_folded = true };
     }
     else if (entity->e_type == ENTITY_FUNC) {
-        return (ResolvedExpr) { .type = entity->type, .is_lvalue = false, .is_const = false };
+        return (ResolvedExpr) { .type = entity->type, .is_lvalue = false, .is_const = false, .is_folded = false };
     }
     else if (entity->e_type == ENTITY_LOCAL) {
-        return (ResolvedExpr) { .type = entity->type, .is_lvalue = true, .is_const = false };
+        return (ResolvedExpr) { .type = entity->type, .is_lvalue = true, .is_const = false, .is_folded = false };
     }
     else {
         resolve_error(entity->loc, "A value expression is expected by %s", name);
@@ -402,7 +404,7 @@ Type* resolve_typespec(TypeSpec* typespec);
 
 ResolvedExpr resolve_expr(Expr* expr, Type* expected_type) {
     if (expr == NULL && expected_type == type_void) {
-        return (ResolvedExpr) { .type = type_void, .is_lvalue = false, .is_const = false };
+        return (ResolvedExpr) { .type = type_void, .is_lvalue = false, .is_const = false, .is_folded = false };
     }
     ResolvedExpr r_expr;
     switch (expr->type) {
@@ -455,8 +457,9 @@ ResolvedExpr resolve_expr(Expr* expr, Type* expected_type) {
         assert(0);
     }
     expr->resolved_type = r_expr.type;
-    if (r_expr.type == type_int && r_expr.is_const) {
+    if (r_expr.type == type_int && r_expr.is_folded) {
         expr->resolved_value = r_expr.value;
+        expr->is_folded = r_expr.is_folded;
     }
     return r_expr;
 }
@@ -525,17 +528,20 @@ ResolvedExpr resolve_binary_expr(Expr* expr) {
     if (left.type != right.type) {
         resolve_error(expr->loc, "type mismatch in the binary expression");
     }
-    assert(left.type == type_int);
-    if (left.is_const && right.is_const) {        
-        return (ResolvedExpr) { 
-            .value = eval_const_binary_expr(expr->binary_expr.op, left.value, right.value, expr->loc), 
-            .type = type_int, 
-            .is_lvalue = false, 
-            .is_const = true 
+    if (left.type != type_int) {
+        resolve_error(expr->loc, "expression is not arithmetic type");
+    }
+    if (left.is_folded && right.is_folded) {        
+        return (ResolvedExpr) {
+            .value = eval_const_binary_expr(expr->binary_expr.op, left.value, right.value, expr->loc),
+            .type = type_int,
+            .is_lvalue = false,
+            .is_const = left.is_const && right.is_const,
+            .is_folded = true
         };
     }
     else {
-        return (ResolvedExpr) { .type = left.type, .is_lvalue = false, .is_const = false };
+        return (ResolvedExpr) { .type = left.type, .is_lvalue = false, .is_const = false, .is_folded = false };
     }
 }
 
@@ -550,7 +556,11 @@ ResolvedExpr resolve_pre_unary_expr(Expr* expr) {
         if (!base_expr.is_lvalue) {
             resolve_error(expr->loc, "an lvalue is expected as the operand");
         }
-        return (ResolvedExpr) { .value = base_expr.value + 1, .type = base_expr.type, .is_lvalue = true, .is_const = false };
+        if (base_expr.type != type_int) {
+            resolve_error(expr->loc, "expression is not arithmetic type");
+        }
+        // unary increments are not folded and are not allowed in var expressions
+        return (ResolvedExpr) { .type = base_expr.type, .is_lvalue = true, .is_const = false, .is_folded = false };
     case TOKEN_DEC:
         if (base_expr.is_const) {
             resolve_error(expr->loc, "const values cannot be incremented");
@@ -558,25 +568,41 @@ ResolvedExpr resolve_pre_unary_expr(Expr* expr) {
         if (!base_expr.is_lvalue) {
             resolve_error(expr->loc, "an lvalue is expected as the operand");
         }
-        return (ResolvedExpr) { .value = base_expr.value - 1, .type = base_expr.type, .is_lvalue = true, .is_const = false };
+        if (base_expr.type != type_int) {
+            resolve_error(expr->loc, "expression is not arithmetic type");
+        }
+        // unary decrements are not folded and are not allowed in var expressions
+        return (ResolvedExpr) { .type = base_expr.type, .is_lvalue = true, .is_const = false, .is_folded = false };
     case '+':
-        return (ResolvedExpr) { .value = +base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
+        if (base_expr.type != type_int) {
+            resolve_error(expr->loc, "expression is not arithmetic type");
+        }
+        return (ResolvedExpr) { .value = +base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const, .is_folded = base_expr.is_folded };
     case '-':
-        return (ResolvedExpr) { .value = -base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
+        if (base_expr.type != type_int) {
+            resolve_error(expr->loc, "expression is not arithmetic type");
+        }
+        return (ResolvedExpr) { .value = -base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const, .is_folded = base_expr.is_folded };
     case '*':
         if (base_expr.type->type != TYPE_PTR) {
             resolve_error(expr->loc, "pointer type is expected in a dereference");
         }
-        return (ResolvedExpr) { .type = base_expr.type->ptr.base, .is_lvalue = true, .is_const = false };
+        return (ResolvedExpr) { .type = base_expr.type->ptr.base, .is_lvalue = true, .is_const = false, .is_folded = false };
     case '&':
         if (!base_expr.is_lvalue) {
             resolve_error(expr->loc, "an lvalue is expected as the operand");
         }
-        return (ResolvedExpr) { .type = type_ptr(base_expr.type), .is_lvalue = false, .is_const = false };
+        return (ResolvedExpr) { .type = type_ptr(base_expr.type), .is_lvalue = false, .is_const = false, .is_folded = false };
     case '!':
-        return (ResolvedExpr) { .value = !base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
+        if (base_expr.type != type_int) {
+            resolve_error(expr->loc, "expression is not arithmetic type");
+        }
+        return (ResolvedExpr) { .value = !base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const, .is_folded = base_expr.is_folded };
     case '~':
-        return (ResolvedExpr) { .value = ~base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const };
+        if (base_expr.type != type_int) {
+            resolve_error(expr->loc, "expression is not arithmetic type");
+        }
+        return (ResolvedExpr) { .value = ~base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = base_expr.is_const, .is_folded = base_expr.is_folded };
     default:
         assert(0);
     }
@@ -594,7 +620,11 @@ ResolvedExpr resolve_post_unary_expr(Expr* expr) {
         if (!base_expr.is_lvalue) {
             resolve_error(expr->loc, "an lvalue is expected as the operand");
         }
-        return (ResolvedExpr) { .value = base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = false };
+        if (base_expr.type != type_int) {
+            resolve_error(expr->loc, "expression is not arithmetic type");
+        }
+        // unary increments are not folded and are not allowed in var expressions
+        return (ResolvedExpr) { .type = base_expr.type, .is_lvalue = false, .is_const = false, .is_folded = false };
     case TOKEN_DEC:
         if (base_expr.is_const) {
             resolve_error(expr->loc, "const values cannot be incremented");
@@ -602,7 +632,11 @@ ResolvedExpr resolve_post_unary_expr(Expr* expr) {
         if (!base_expr.is_lvalue) {
             resolve_error(expr->loc, "an lvalue is expected as the operand");
         }
-        return (ResolvedExpr) { .value = base_expr.value, .type = base_expr.type, .is_lvalue = false, .is_const = false };
+        if (base_expr.type != type_int) {
+            resolve_error(expr->loc, "expression is not arithmetic type");
+        }
+        // unary decrements are not folded and are not allowed in var expressions
+        return (ResolvedExpr) { .type = base_expr.type, .is_lvalue = false, .is_const = false, .is_folded = false };
     default:
         assert(0);
     }
@@ -611,12 +645,12 @@ ResolvedExpr resolve_post_unary_expr(Expr* expr) {
 
 ResolvedExpr resolve_int_expr(Expr* expr) {
     assert(expr->type == EXPR_INT);
-    return (ResolvedExpr) { .value = (int64_t)expr->int_expr.int_val, .type = type_int, .is_lvalue = false, .is_const = true };
+    return (ResolvedExpr) { .value = (int64_t)expr->int_expr.int_val, .type = type_int, .is_lvalue = false, .is_const = true, .is_folded = true };
 }
 
 ResolvedExpr resolve_float_expr(Expr* expr) {
     assert(expr->type == EXPR_FLOAT);
-    return (ResolvedExpr) { .value = *(int64_t*)&(expr->float_expr.float_val), .type = type_float, .is_lvalue = false, .is_const = true };
+    return (ResolvedExpr) { .value = *(int64_t*)&(expr->float_expr.float_val), .type = type_float, .is_lvalue = false, .is_const = true, .is_folded = true };
 }
 
 ResolvedExpr resolve_name_expr(Expr* expr) {
@@ -635,7 +669,7 @@ ResolvedExpr resolve_index_expr(Expr* expr) {
         resolve_error(expr->loc, "An integer is expected as array index");
     }
     Type* type = base_expr.type->type == TYPE_ARRAY ? base_expr.type->array.base : base_expr.type->ptr.base;
-    return (ResolvedExpr) { .type = type, .is_lvalue = base_expr.is_lvalue, .is_const = base_expr.is_const };
+    return (ResolvedExpr) { .type = type, .is_lvalue = base_expr.is_lvalue, .is_const = base_expr.is_const, .is_folded = false };
 }
 
 ResolvedExpr resolve_field_expr(Expr* expr) {
@@ -645,7 +679,7 @@ ResolvedExpr resolve_field_expr(Expr* expr) {
         if (expr->field_expr.field == base_expr.type->aggregate.fields[i].name) {
             Type* type = base_expr.type->aggregate.fields[i].type;
             complete_type(type);
-            return (ResolvedExpr) { .type = type, .is_lvalue = base_expr.is_lvalue, .is_const = base_expr.is_const };
+            return (ResolvedExpr) { .type = type, .is_lvalue = base_expr.is_lvalue, .is_const = base_expr.is_const, .is_folded = false };
         }
     }
     resolve_error(expr->loc, "%s is not a field of %s", expr->field_expr.field, base_expr.type->entity->name);
@@ -655,14 +689,14 @@ ResolvedExpr resolve_field_expr(Expr* expr) {
 ResolvedExpr resolve_sizeof_expr_expr(Expr* expr) {
     assert(expr->type == EXPR_SIZEOF_EXPR);
     ResolvedExpr base_expr = resolve_expr(expr->sizeof_expr.expr, NULL);
-    return (ResolvedExpr) { .value = base_expr.type->size, .type = type_int, .is_lvalue = false, .is_const = true };
+    return (ResolvedExpr) { .value = base_expr.type->size, .type = type_int, .is_lvalue = false, .is_const = true, .is_folded = true };
 }
 
 ResolvedExpr resolve_sizeof_type_expr(Expr* expr) {
     assert(expr->type == EXPR_SIZEOF_TYPE);
     Type* type = resolve_typespec(expr->sizeof_expr.type);
     complete_type(type);
-    return (ResolvedExpr) { .value = type->size, .type = type_int, .is_lvalue = false, .is_const = true };
+    return (ResolvedExpr) { .value = type->size, .type = type_int, .is_lvalue = false, .is_const = true, .is_folded = true };
 }
 
 ResolvedExpr resolve_ternary_expr(Expr* expr, Type* expected_type) {
@@ -679,17 +713,17 @@ ResolvedExpr resolve_ternary_expr(Expr* expr, Type* expected_type) {
     if (expected_type && right_expr.type != expected_type) {
         resolve_error(expr->loc, "The right expr type mismatch with the expected type");
     }
-    if (cond_expr.is_const && left_expr.is_const && right_expr.is_const) {
+    if (cond_expr.is_folded) {
         return cond_expr.value ? left_expr : right_expr;
     }
     else {
-        return (ResolvedExpr) { .type = left_expr.type, .is_lvalue = left_expr.is_lvalue && right_expr.is_lvalue, .is_const = false };
+        return (ResolvedExpr) { .type = left_expr.type, .is_lvalue = left_expr.is_lvalue && right_expr.is_lvalue, .is_const = false, .is_folded = false };
     }
 }
 
 ResolvedExpr resolve_str_expr(Expr* expr) {
     assert(expr->type == EXPR_STR);
-    return (ResolvedExpr) { .type = type_ptr(type_char), .is_lvalue = false, .is_const = true };
+    return (ResolvedExpr) { .type = type_ptr(type_char), .is_lvalue = false, .is_const = true, .is_folded = false };
 }
 
 ResolvedExpr resolve_call_expr(Expr* expr, Type* expected_type) {
@@ -707,7 +741,7 @@ ResolvedExpr resolve_call_expr(Expr* expr, Type* expected_type) {
     if (expected_type && func_expr.type->func.ret != expected_type) {
         resolve_error(expr->loc, "Function return type mismatch with the expected type");
     }
-    return (ResolvedExpr) { .type = func_expr.type->func.ret, .is_lvalue = false, .is_const = false };
+    return (ResolvedExpr) { .type = func_expr.type->func.ret, .is_lvalue = false, .is_const = false, .is_folded = false };
 }
 
 ResolvedExpr resolve_compound_expr(Expr* expr, Type* expected_type) {
@@ -731,6 +765,7 @@ ResolvedExpr resolve_compound_expr(Expr* expr, Type* expected_type) {
             resolve_error(expr->loc, "Number of fields in the compound expression exceeds the aggregate definition field count");
         }
         bool is_const = true;
+        bool is_folded = true;
         for (size_t i = 0, k = 0; i < expr->compound_expr.num_compound_items; i++, k++) {
             CompoundItem compound_item = expr->compound_expr.compound_items[i];
             if (compound_item.type == COMPOUND_INDEX) {
@@ -749,17 +784,19 @@ ResolvedExpr resolve_compound_expr(Expr* expr, Type* expected_type) {
             }
             ResolvedExpr r_expr = resolve_expr(compound_item.value, compound_type->aggregate.fields[k].type);
             is_const &= r_expr.is_const;
+            is_folded &= r_expr.is_folded;
             if (compound_type->aggregate.fields[i].type != r_expr.type) {
                 resolve_error(expr->loc, "Field type mismatch with the aggregate definition");
             }
         }
-        return (ResolvedExpr) { .type = compound_type, .is_lvalue = false, .is_const = is_const };
+        return (ResolvedExpr) { .type = compound_type, .is_lvalue = false, .is_const = is_const, .is_folded = is_folded };
     }
     else if (compound_type->type == TYPE_ARRAY) {
         if (compound_type->array.size < expr->compound_expr.num_compound_items) {
             resolve_error(expr->loc, "Number of fields in the compound expression exceeds the array size");
         }
         bool is_const = true;
+        bool is_folded = true;
         for (size_t i = 0, k = 0; i < expr->compound_expr.num_compound_items; i++, k++) {
             CompoundItem compound_item = expr->compound_expr.compound_items[i];
             if (compound_item.type == COMPOUND_NAME) {
@@ -783,11 +820,12 @@ ResolvedExpr resolve_compound_expr(Expr* expr, Type* expected_type) {
             }
             ResolvedExpr r_expr = resolve_expr(expr->compound_expr.compound_items[i].value, compound_type->array.base);
             is_const &= r_expr.is_const;
+            is_folded &= r_expr.is_folded;
             if (compound_type->array.base != r_expr.type) {
                 resolve_error(expr->loc, "Field type mismatch with the array type");
             }
         }
-        return (ResolvedExpr) { .type = compound_type, .is_lvalue = false, .is_const = is_const };
+        return (ResolvedExpr) { .type = compound_type, .is_lvalue = false, .is_const = is_const, .is_folded = is_folded };
     }
     else {
         resolve_error(expr->loc, "An array or struct or union type is expected in a compound expression");
@@ -815,7 +853,7 @@ ResolvedExpr resolve_cast_expr(Expr* expr) {
     else {
         resolve_error(expr->loc, "Unsupported cast");
     }
-    return (ResolvedExpr) { .type = cast_type, .is_lvalue = false, .is_const = false };
+    return (ResolvedExpr) { .type = cast_type, .is_lvalue = false, .is_const = false, .is_folded = true };
 }
 
 Type* resolve_typespec_name(TypeSpec* typespec);
@@ -982,9 +1020,11 @@ void resolve_entity_var(Entity* entity) {
         if (type && type != r_expr.type) {
             resolve_error(entity->loc, "declared type and the expression types mismatch in %s", entity->name);
         }
-        if (r_expr.is_const) {
-            entity->value = r_expr.value;
+        if (!r_expr.is_folded) {
+            resolve_error(entity->loc, "declared expr of %s is not evaluable at compile time", entity->name);
         }
+        entity->value = r_expr.value;
+        entity->is_folded = r_expr.is_folded;//r_expr.type == type_int;
         type = r_expr.type;
         entity->type = type;
     }
@@ -992,10 +1032,22 @@ void resolve_entity_var(Entity* entity) {
     buf_push(ordered_entities, entity);
 }
 
+#if 0
+
+ok
+==
+
+
+not ok
+=======
+any expr involving compiler time in-evaluable
+
+#endif
+
 void resolve_entity_const(Entity* entity) {
     ResolvedExpr r_expr = resolve_expr(entity->decl->const_decl.expr, NULL);
     if (!r_expr.is_const) {
-        resolve_error(entity->loc, "A const expr is expected in a const declaration");
+        resolve_error(entity->loc, "A const expr is expected in the const declaration %s", entity->name);
     }
     entity->type = r_expr.type;
     entity->value = r_expr.value;

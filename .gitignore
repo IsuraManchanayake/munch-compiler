@@ -17,3 +17,5 @@ munch_compiler/x64
 
 */munch_test/*.c
 */munch_test/*.mch
+
+!test1.mch
