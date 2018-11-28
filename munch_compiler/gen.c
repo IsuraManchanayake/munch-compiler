@@ -297,7 +297,7 @@ char* gen_expr_sizeof_expr(Expr* expr, bool force_fold) {
 
 char* gen_expr_core(Expr* expr, bool type_expected, bool force_fold) {
     if (expr->is_folded && expr->resolved_type == type_int) {
-        return strf("%d", expr->resolved_value);
+        return strf("%d", expr->folded_value);
     }
     switch (expr->type) {
     case EXPR_TERNARY:

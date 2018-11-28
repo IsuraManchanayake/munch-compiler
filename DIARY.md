@@ -1,8 +1,12 @@
 # Diary
 
+## 28th November 2018 10 PM
+
+- warnings about variable/function usages (set without usage, use without setting, no use nor set) is added
+
 ## 9th November 2018 1 AM
 
-- non trivial constant folding and the bug of var declaration expressions are fixed at the same time.
+- non trivial constant folding and the bug of var declaration expressions are fixed at the same time
 - non const expressions for variable declarations are not allowed at the global level by the C compiler
 - therefore, foldable arithmetic expressions are evaluated and symbols of compound expressions are simply replaced by their definitions (only var and const) at the C code generation stage.
 

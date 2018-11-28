@@ -39,6 +39,15 @@ void fatal(const char* fmt, ...) {
     exit(1);
 }
 
+void warning(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    printf("WARNING: ");
+    vprintf(fmt, args);
+    printf("\n");
+    va_end(args);
+}
+
 void basic_syntax_error(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);

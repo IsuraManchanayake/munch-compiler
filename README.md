@@ -6,3 +6,5 @@
 This is a compiler design project for munch language (following the tutorial series of [Bitwise](https://www.youtube.com/channel/UCguWV1bZg1QiWbY32vGnOLw))
 
 Look at DIARY.md for updates
+
+A proper readme will be uploaded soon! (28th Nov)

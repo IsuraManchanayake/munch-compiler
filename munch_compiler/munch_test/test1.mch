@@ -15,9 +15,9 @@
  ***  // //
  */
 
- /*
-var qq0 = 5
-var rr0 = qq0 + 1
+ 
+var qq0: int
+var rr0: int = qq0 + 1
 var ss0: int[2]
 var tt0 = (:int[2][2]){{1, 2}, ss0}
 var uu0 = (:int[2][2][1]){tt0}
@@ -25,8 +25,9 @@ var uu0 = (:int[2][2][1]){tt0}
 func do_n() {
     p := 10;
     a := p + (rr0 + 1);
+    qq0 = 10;
 }
-*/
+/*
 struct V0 {
     x: int;
     y: int;
@@ -168,3 +169,4 @@ func is_prime0(n: int): int {
     }
     return true;
 }
+*/

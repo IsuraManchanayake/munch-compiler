@@ -28,15 +28,26 @@ bool munch_compile_file(const char* path) {
     return write_file(out_path, buf, buf_len(buf));
 }
 
-int munch_main(int argc, char** argv) {
-    if(argc != 2) {
-        printf("Usage: <source file>");
-        return 1;
+const char* arg_src_path;
+
+void parse_args(int argc, char** argv) {
+    if (argc != 2 && argc != 3) {
+        printf("Usage: <source file> [-W-no]");
+        exit(1);
     }
-    bool status = munch_compile_file(argv[1]);
-    if(status) {
+    if (argc == 3 && strcmp(argv[2], "-W-no") == 0) {
+        enable_warnings = false;
+    }
+    arg_src_path = argv[1];
+}
+
+int munch_main(int argc, char** argv) {
+    parse_args(argc, argv);
+    bool status = munch_compile_file(arg_src_path);
+    if (status) {
         puts("Compilation successful\n");
-    } else {
+    }
+    else {
         puts("Compilation failed\n");
     }
     printf("Collisions: %zu\n", collisions);

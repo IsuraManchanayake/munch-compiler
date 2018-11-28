@@ -364,8 +364,8 @@ typedef struct SizeofExpr {
 struct Expr {
     ExprType type;
     Type* resolved_type;
-    int64_t resolved_value;
     bool is_folded;
+    int64_t folded_value;
     SrcLoc loc;
     union {
         TernaryExpr ternary_expr;
